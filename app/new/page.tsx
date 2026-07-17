@@ -14,16 +14,22 @@ import {
 } from "@/lib/engine";
 
 type Draft = { name: string; handicap: string };
+type CourseHit = {
+  id?: number;
+  name: string;
+  where: string;
+  holes: HoleInfo[];
+};
+
+const emptyDraft = (): Draft => ({ name: "", handicap: "" });
 
 export default function NewGamePage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"20" | "40">("20");
   const [name, setName] = useState("");
-  const [players, setPlayers] = useState<Draft[]>([
-    { name: "", handicap: "" },
-    { name: "", handicap: "" },
-    { name: "", handicap: "" },
-    { name: "", handicap: "" },
-  ]);
+  const [players, setPlayers] = useState<Draft[]>(
+    Array.from({ length: 4 }, emptyDraft)
+  );
   const [myIndex, setMyIndex] = useState(0);
   const [holes, setHoles] = useState<HoleInfo[]>(
     COURSE_PRESETS[0].holes.map((h) => ({ ...h }))
@@ -33,13 +39,64 @@ export default function NewGamePage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [courseQ, setCourseQ] = useState("");
+  const [courseResults, setCourseResults] = useState<CourseHit[] | null>(null);
+  const [courseMsg, setCourseMsg] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  const teamSize = players.length / 2;
+
+  const switchMode = (m: "20" | "40") => {
+    if (m === mode) return;
+    setMode(m);
+    const count = m === "40" ? 8 : 4;
+    setPlayers((prev) => {
+      const next = Array.from({ length: count }, (_, i) =>
+        i < prev.length ? prev[i] : emptyDraft()
+      );
+      return next;
+    });
+    setMyIndex(0);
+    setSettings((s) => ({ ...s, keepTarget: m === "40" ? 40 : 20 }));
+  };
+
   const setPlayer = (i: number, patch: Partial<Draft>) =>
     setPlayers(players.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+
+  const searchCourses = async () => {
+    if (courseQ.trim().length < 3) {
+      setCourseMsg("Type at least 3 letters of the course name.");
+      return;
+    }
+    setSearching(true);
+    setCourseMsg("");
+    try {
+      const res = await api<{ enabled: boolean; courses: CourseHit[] }>(
+        `/api/courses/search?q=${encodeURIComponent(courseQ.trim())}`
+      );
+      if (!res.enabled) {
+        setCourseResults(null);
+        setCourseMsg(
+          "Course search isn't switched on yet — it needs a (free) golfcourseapi.com key. Use a preset or type the card from the scorecard for now."
+        );
+      } else {
+        setCourseResults(res.courses);
+        if (res.courses.length === 0)
+          setCourseMsg(
+            "No courses with a full scorecard found — try another spelling, or enter the card manually."
+          );
+      }
+    } catch (e) {
+      setCourseMsg(e instanceof Error ? e.message : "Search failed.");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const create = async () => {
     setErr("");
     for (const p of players) {
-      if (!p.name.trim()) return setErr("Enter all four player names.");
+      if (!p.name.trim()) return setErr("Enter every player name.");
       if (p.handicap.trim() === "" || !Number.isFinite(Number(p.handicap)))
         return setErr(`Enter a handicap for ${p.name || "every player"}.`);
     }
@@ -54,7 +111,7 @@ export default function NewGamePage() {
           players: players.map((p, i) => ({
             name: p.name,
             handicap: Number(p.handicap),
-            team: i < 2 ? 1 : 2,
+            team: i < teamSize ? 1 : 2,
           })),
           myIndex,
           holes,
@@ -108,13 +165,36 @@ export default function NewGamePage() {
 
       <div className="space-y-5">
         <section className="card rise p-4">
-          <label className="label">Game name (optional)</label>
+          <label className="label">Game type</label>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink/10 p-1">
+            {(
+              [
+                ["20", "20 Ball", "2 v 2 · keep 20"],
+                ["40", "40 Ball", "4 v 4 · keep 40"],
+              ] as const
+            ).map(([m, label, sub]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={`btn h-14 flex-col gap-0 ${
+                  mode === m ? "bg-paper shadow" : "text-faint"
+                }`}
+              >
+                <span className="text-base">{label}</span>
+                <span className="text-[10px] font-bold normal-case tracking-normal">
+                  {sub}
+                </span>
+              </button>
+            ))}
+          </div>
+          <label className="label mt-4">Game name (optional)</label>
           <input
             className="input"
-            placeholder={`20 Ball — ${new Date().toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-            })}`}
+            placeholder={`${mode} Ball — ${new Date().toLocaleDateString(
+              undefined,
+              { month: "short", day: "numeric" }
+            )}`}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -122,19 +202,64 @@ export default function NewGamePage() {
 
         <section className="card rise p-4">
           <h2 className="label">Team 1</h2>
-          {playerRow(0)}
-          {playerRow(1)}
+          {players.slice(0, teamSize).map((_, i) => playerRow(i))}
           <h2 className="label mt-4">Team 2</h2>
-          {playerRow(2)}
-          {playerRow(3)}
+          {players.slice(teamSize).map((_, i) => playerRow(teamSize + i))}
           <p className="mt-2 text-xs text-faint">
             Tap <b>me</b> next to your own name — that decides which team&apos;s
-            card you run. Strokes come off the lowest handicap automatically.
+            card you run. Strokes come off the lowest handicap in the game.
+            {mode === "40" &&
+              " Each foursome can start on its own hole — set that under House rules."}
           </p>
         </section>
 
         <section className="card rise p-4">
           <h2 className="mb-2 font-display text-lg font-bold">Course card</h2>
+          <div className="mb-3 flex gap-2">
+            <input
+              className="input flex-1"
+              placeholder="Search a course (name or city)…"
+              value={courseQ}
+              onChange={(e) => setCourseQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  searchCourses();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-paper h-12 px-4"
+              onClick={searchCourses}
+              disabled={searching}
+            >
+              {searching ? "…" : "Find"}
+            </button>
+          </div>
+          {courseMsg && <p className="mb-2 text-sm text-faint">{courseMsg}</p>}
+          {courseResults && courseResults.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              {courseResults.map((c, i) => (
+                <button
+                  key={c.id ?? i}
+                  type="button"
+                  className="card block w-full p-2.5 text-left"
+                  onClick={() => {
+                    setHoles(c.holes.map((h) => ({ ...h })));
+                    setPreset(c.name);
+                    setCourseResults(null);
+                    setCourseMsg(`Loaded: ${c.name}`);
+                  }}
+                >
+                  <span className="font-bold">{c.name}</span>
+                  {c.where && (
+                    <span className="ml-1.5 text-xs text-faint">{c.where}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mb-3 flex flex-wrap gap-1.5">
             {COURSE_PRESETS.map((p) => (
               <button
@@ -153,9 +278,9 @@ export default function NewGamePage() {
                 {p.name}
               </button>
             ))}
-            {preset === "custom" && (
+            {!COURSE_PRESETS.some((p) => p.name === preset) && (
               <span className="chip h-8 border-2 border-gold bg-gold/20 px-3">
-                custom card
+                {preset === "custom" ? "custom card" : preset}
               </span>
             )}
           </div>
@@ -186,7 +311,7 @@ export default function NewGamePage() {
             onClick={create}
             disabled={busy}
           >
-            {busy ? "Creating…" : "Create game"}
+            {busy ? "Creating…" : `Create ${mode} Ball game`}
           </button>
         </div>
       </div>

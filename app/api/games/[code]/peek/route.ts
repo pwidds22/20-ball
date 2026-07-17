@@ -10,7 +10,7 @@ import {
   teamPlayers,
   teamProgress,
 } from "@/lib/game-server";
-import { keptSummaryThru } from "@/lib/engine";
+import { keptSummaryPlayed } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,7 @@ export async function POST(
 
   const oppTeam = 3 - myTeam;
   const thru = teamProgress(bundle, oppTeam);
-  const summary = keptSummaryThru(
+  const summary = keptSummaryPlayed(
     teamPlayers(bundle, oppTeam),
     teamEntries(bundle, oppTeam),
     bundle.game.holes,

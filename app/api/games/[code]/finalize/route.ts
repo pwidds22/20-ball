@@ -43,9 +43,10 @@ export async function POST(
 
   const warnings: string[] = [];
   for (const team of [1, 2]) {
+    const slots = bundle.players.filter((p) => p.team === team).length * 18;
     const entries = teamEntries(bundle, team);
-    if (entries.length < 36)
-      warnings.push(`Team ${team} has ${36 - entries.length} score(s) not entered.`);
+    if (entries.length < slots)
+      warnings.push(`Team ${team} has ${slots - entries.length} score(s) not entered.`);
     const undecided = entries.filter((e) => !e.decided).length;
     if (undecided > 0)
       warnings.push(`Team ${team} has ${undecided} score(s) not locked in.`);

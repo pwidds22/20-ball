@@ -6,10 +6,12 @@ import {
   loadGameByCode,
   memberTeam,
   requireSession,
-  teamDecidedThru,
+  startHoleOf,
+  teamDecidedThruOrder,
+  teamMaxEnteredOrder,
   teamPendingHole,
-  teamProgress,
 } from "@/lib/game-server";
+import { orderIndex } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +58,8 @@ export async function POST(
   const existing = bundle.entries.find(
     (e) => e.playerId === playerId && e.hole === hole
   );
-  const decidedThru = teamDecidedThru(bundle, myTeam);
+  const start = startHoleOf(bundle, myTeam);
+  const decidedThruOrder = teamDecidedThruOrder(bundle, myTeam);
   const pendingHole = teamPendingHole(bundle, myTeam);
   const teamLabel = `Team ${myTeam}`;
 
@@ -117,21 +120,24 @@ export async function POST(
   }
 
   // Brand-new entry: enforce the no-backfill / decide-first cadence.
+  // All comparisons run on play order so teams can start on any hole.
   if (!existing && locked) {
-    if (hole <= decidedThru)
+    if (orderIndex(hole, start) <= decidedThruOrder)
       return jsonError(
         400,
-        `Hole ${hole} is closed — your team already locked in hole ${decidedThru}.`
+        `Hole ${hole} is behind you — your team already locked in a later hole.`
       );
-    if (pendingHole !== null && hole > pendingHole)
+    if (
+      pendingHole !== null &&
+      orderIndex(hole, start) > orderIndex(pendingHole, start)
+    )
       return jsonError(
         400,
         `Lock in hole ${pendingHole} first — decisions are final before you move on.`
       );
   }
   if (!existing && !locked) {
-    const progress = teamProgress(bundle, myTeam);
-    if (hole < progress)
+    if (orderIndex(hole, start) < teamMaxEnteredOrder(bundle, myTeam))
       await insertAlert(
         bundle.game.id,
         myTeam,

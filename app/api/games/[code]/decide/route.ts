@@ -6,9 +6,11 @@ import {
   loadGameByCode,
   memberTeam,
   requireSession,
+  startHoleOf,
   teamEntries,
   teamPendingHole,
 } from "@/lib/game-server";
+import { orderIndex } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -80,10 +82,14 @@ export async function POST(
     );
 
   if (initial.length > 0) {
-    // Must decide the whole hole at once, and (locked policy) in order.
+    // Must decide the whole hole at once, and (locked policy) in play order.
     if (locked) {
+      const start = startHoleOf(bundle, myTeam);
       const pending = teamPendingHole(bundle, myTeam);
-      if (pending !== null && pending < hole)
+      if (
+        pending !== null &&
+        orderIndex(pending, start) < orderIndex(hole, start)
+      )
         return jsonError(400, `Lock in hole ${pending} first.`);
     }
     const undecidedHere = holeEntries.filter((e) => !e.decided && !e.pickup);

@@ -14,7 +14,9 @@ import {
   type Settings,
   type TeamView,
   buildTeamView,
-  keptSummaryThru,
+  keptSummaryPlayed,
+  normalizeSettings,
+  orderIndex,
   revealCheckpoint,
   strokesForHandicap,
 } from "./engine";
@@ -67,7 +69,9 @@ export async function loadGameByCode(code: string): Promise<GameBundle | null> {
     from twentyball.games where code = ${code.toUpperCase()}`;
   if (games.length === 0) return null;
   const game = games[0] as unknown as GameBundle["game"];
-  game.settings = parseJsonb<Settings>(game.settings);
+  // Normalizing on load keeps rows written by older versions forward-compatible
+  // (e.g. games created before per-team starting holes existed).
+  game.settings = normalizeSettings(parseJsonb<Settings>(game.settings));
   game.holes = parseJsonb<HoleInfo[]>(game.holes);
 
   const [playerRows, members, scoreRows, peekRows, alertRows] =
@@ -133,19 +137,17 @@ export async function insertAlert(
     values (${gameId}, ${team}, ${message})`;
 }
 
-/** Highest hole this team has locked in. */
-export function teamDecidedThru(bundle: GameBundle, team: number) {
-  return teamEntries(bundle, team).reduce(
-    (m, e) => (e.decided ? Math.max(m, e.hole) : m),
-    0
-  );
-}
-
-/** Lowest hole with an entered score still awaiting its keep decision. */
+/** Hole (earliest in play order) with an entered score awaiting its decision. */
 export function teamPendingHole(bundle: GameBundle, team: number) {
+  const start = startHoleOf(bundle, team);
   let pending: number | null = null;
   for (const e of teamEntries(bundle, team)) {
-    if (!e.decided && (pending === null || e.hole < pending)) pending = e.hole;
+    if (
+      !e.decided &&
+      (pending === null ||
+        orderIndex(e.hole, start) < orderIndex(pending, start))
+    )
+      pending = e.hole;
   }
   return pending;
 }
@@ -163,8 +165,32 @@ export function teamEntries(bundle: GameBundle, team: number) {
   return bundle.entries.filter((e) => ids.has(e.playerId));
 }
 
+/** Number of distinct holes the team has entered anything on. */
 export function teamProgress(bundle: GameBundle, team: number) {
-  return teamEntries(bundle, team).reduce((m, e) => Math.max(m, e.hole), 0);
+  return new Set(teamEntries(bundle, team).map((e) => e.hole)).size;
+}
+
+/** The team's configured starting hole. */
+export function startHoleOf(bundle: GameBundle, team: number) {
+  return bundle.game.settings.startHoles[team - 1] ?? 1;
+}
+
+/** Highest play-order index (0-17) with a locked-in decision, -1 if none. */
+export function teamDecidedThruOrder(bundle: GameBundle, team: number) {
+  const start = startHoleOf(bundle, team);
+  return teamEntries(bundle, team).reduce(
+    (m, e) => (e.decided ? Math.max(m, orderIndex(e.hole, start)) : m),
+    -1
+  );
+}
+
+/** Highest play-order index with any entry, -1 if none. */
+export function teamMaxEnteredOrder(bundle: GameBundle, team: number) {
+  const start = startHoleOf(bundle, team);
+  return teamEntries(bundle, team).reduce(
+    (m, e) => Math.max(m, orderIndex(e.hole, start)),
+    -1
+  );
 }
 
 export function teamKeptCount(bundle: GameBundle, team: number) {
@@ -183,7 +209,8 @@ function fullTeamView(bundle: GameBundle, team: number): TeamView {
     teamEntries(bundle, team),
     holes,
     settings,
-    Math.max(0, settings.peeksPerTeam - peeksUsed(bundle, team))
+    Math.max(0, settings.peeksPerTeam - peeksUsed(bundle, team)),
+    startHoleOf(bundle, team)
   );
 }
 
@@ -196,7 +223,8 @@ export function buildState(bundle: GameBundle, session: Session): GameState {
   const mine = fullTeamView(bundle, myTeam);
   const oppEntriesAll = teamEntries(bundle, oppTeam);
   const oppPlayers = teamPlayers(bundle, oppTeam);
-  const oppProgress = oppEntriesAll.reduce((m, e) => Math.max(m, e.hole), 0);
+  const oppStart = startHoleOf(bundle, oppTeam);
+  const oppProgress = teamProgress(bundle, oppTeam);
 
   const checkpoint = revealCheckpoint(
     game.settings.revealEvery,
@@ -205,7 +233,13 @@ export function buildState(bundle: GameBundle, session: Session): GameState {
   );
   const reveal =
     game.status === "active" && checkpoint > 0
-      ? keptSummaryThru(oppPlayers, oppEntriesAll, game.holes, checkpoint)
+      ? keptSummaryPlayed(
+          oppPlayers,
+          oppEntriesAll,
+          game.holes,
+          checkpoint,
+          oppStart
+        )
       : null;
 
   const state: GameState = {
@@ -235,6 +269,7 @@ export function buildState(bundle: GameBundle, session: Session): GameState {
         strokes: p.strokes,
       })),
       progress: oppProgress,
+      startHole: oppStart,
       reveal,
       peeks: bundle.peeks
         .filter((p) => p.team === myTeam)

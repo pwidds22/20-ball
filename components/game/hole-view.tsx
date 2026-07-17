@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui";
 import {
   netLabel,
+  orderIndex,
+  playOrder,
   type GameState,
   type PlayerInfo,
   type ScoreCell,
@@ -340,6 +342,9 @@ export function HoleView({
   };
   const base = `/api/games/${game.code}`;
 
+  const order = playOrder(mine.startHole);
+  const orderPos = orderIndex(hole, mine.startHole);
+
   const cellOf = (p: PlayerInfo) => mine.cells[p.id]?.[hole];
   const undecided = mine.players.filter((p) => {
     const c = cellOf(p);
@@ -349,11 +354,11 @@ export function HoleView({
     active &&
     policy === "locked" &&
     mine.pendingHole !== null &&
-    mine.pendingHole < hole
+    orderIndex(mine.pendingHole, mine.startHole) < orderPos
       ? mine.pendingHole
       : null;
   const holeClosed =
-    active && policy === "locked" && hole <= mine.decidedThru;
+    active && policy === "locked" && orderPos <= mine.decidedThruOrder;
 
   const allSelected = undecided.every((p) => selections[p.id] !== undefined);
   const keepAdds = undecided.filter((p) => selections[p.id] === true).length;
@@ -416,8 +421,8 @@ export function HoleView({
       <div className="flex items-center justify-between">
         <button
           className="btn btn-paper h-11 w-11 text-xl"
-          disabled={hole <= 1}
-          onClick={() => setHole(hole - 1)}
+          disabled={orderPos <= 0}
+          onClick={() => setHole(order[orderPos - 1])}
         >
           ‹
         </button>
@@ -427,12 +432,13 @@ export function HoleView({
           </div>
           <div className="text-xs font-bold uppercase tracking-widest text-faint">
             par {info.par} · SI {info.si}
+            {mine.startHole !== 1 && ` · #${orderPos + 1} of your round`}
           </div>
         </div>
         <button
           className="btn btn-paper h-11 w-11 text-xl"
-          disabled={hole >= 18}
-          onClick={() => setHole(hole + 1)}
+          disabled={orderPos >= 17}
+          onClick={() => setHole(order[orderPos + 1])}
         >
           ›
         </button>
@@ -506,16 +512,16 @@ export function HoleView({
         </div>
       )}
 
-      {allSettled && hole < 18 && (
+      {allSettled && orderPos < 17 && (
         <button
           className="btn btn-gold h-12 w-full text-base"
-          onClick={() => setHole(hole + 1)}
+          onClick={() => setHole(order[orderPos + 1])}
         >
-          Next hole →
+          Next hole ({order[orderPos + 1]}) →
         </button>
       )}
 
-      {active && mine.decidedThru === 18 && mine.pendingHole === null && (
+      {active && mine.roundComplete && (
         <button
           className="btn btn-gold h-14 w-full text-base"
           onClick={onFinish}

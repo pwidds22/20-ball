@@ -7,3 +7,6 @@ export const DATABASE_URL =
 
 export const AUTH_SECRET =
   process.env.AUTH_SECRET ?? "generate-a-long-random-hex-string";
+
+// Optional: free key from https://golfcourseapi.com enables in-app course search.
+export const GOLF_COURSE_API_KEY = process.env.GOLF_COURSE_API_KEY ?? "";

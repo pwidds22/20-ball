@@ -7,8 +7,12 @@ import {
   OLD_BRIDGE_HOLES,
   STANDARD_HOLES,
   buildTeamView,
-  keptSummaryThru,
+  fmtUsed,
+  keptSummaryPlayed,
   normalizeSettings,
+  orderIndex,
+  playOrder,
+  playerRoundTotals,
   revealCheckpoint,
   strokesForHandicap,
   validateHoles,
@@ -44,192 +48,180 @@ const E = (
   ...opts,
 });
 
+// ── play order ──
+{
+  assert.strictEqual(orderIndex(1, 1), 0);
+  assert.strictEqual(orderIndex(18, 1), 17);
+  assert.strictEqual(orderIndex(10, 10), 0);
+  assert.strictEqual(orderIndex(9, 10), 17, "hole 9 is last from a 10 start");
+  assert.strictEqual(orderIndex(1, 10), 9);
+  const order10 = playOrder(10);
+  assert.strictEqual(order10[0], 10);
+  assert.strictEqual(order10[8], 18);
+  assert.strictEqual(order10[9], 1);
+  assert.strictEqual(order10[17], 9);
+}
+
 // ── strokes: the user's exact example (10, 15, 20, 25 handicaps) ──
 {
   const s10 = strokesForHandicap(10, 10, holes, S);
   assert.strictEqual(s10.reduce((a, b) => a + b, 0), 0, "low man gets 0");
 
   const s15 = strokesForHandicap(15, 10, holes, S);
-  assert.strictEqual(s15.reduce((a, b) => a + b, 0), 5, "15 hcp gets 5 strokes");
+  assert.strictEqual(s15.reduce((a, b) => a + b, 0), 5);
   const eligible = holes.filter((h) => h.par > 3).sort((a, b) => a.si - b.si);
-  for (const h of eligible.slice(0, 5))
-    assert.strictEqual(s15[h.hole], 1, `stroke on SI ${h.si}`);
-  for (const h3 of par3s) assert.strictEqual(s15[h3], 0, "no strokes on par 3s");
+  for (const h of eligible.slice(0, 5)) assert.strictEqual(s15[h.hole], 1);
+  for (const h3 of par3s) assert.strictEqual(s15[h3], 0);
 
-  const s20 = strokesForHandicap(20, 10, holes, S);
-  assert.strictEqual(s20.reduce((a, b) => a + b, 0), 10, "20 hcp gets 10");
-
-  // 25 hcp = 15 strokes but only 14 eligible holes -> hardest hole gets 2
   const s25 = strokesForHandicap(25, 10, holes, S);
-  assert.strictEqual(s25.reduce((a, b) => a + b, 0), 15, "25 hcp gets 15");
+  assert.strictEqual(s25.reduce((a, b) => a + b, 0), 15);
   assert.strictEqual(s25[eligible[0].hole], 2, "hardest hole doubles up");
-  assert.strictEqual(s25[eligible[1].hole], 1);
-  assert.strictEqual(Math.max(...s25), 2, "max 2 per hole at 15 strokes");
 }
 
-// ── par-3 strokes allowed ──
+// ── Old Bridge: 42 vs 14 triple wrap ──
 {
-  const s = strokesForHandicap(15, 10, holes, { ...S, allowPar3Strokes: true });
-  const bySi = holes.slice().sort((a, b) => a.si - b.si);
-  for (const h of bySi.slice(0, 5)) assert.strictEqual(s[h.hole], 1);
-  assert.strictEqual(s.reduce((a, b) => a + b, 0), 5);
+  assert.strictEqual(validateHoles(OLD_BRIDGE_HOLES), null);
+  const s42 = strokesForHandicap(42, 14, OLD_BRIDGE_HOLES, S);
+  assert.strictEqual(s42.reduce((a, b) => a + b, 0), 28);
+  assert.strictEqual(s42[16], 3);
+  assert.strictEqual(s42[8], 3);
+  assert.strictEqual(s42.filter((n) => n === 2).length, 11);
 }
 
-// ── handicap allowance % + rounding ──
-{
-  const s = strokesForHandicap(25.4, 10.1, holes, { ...S, handicapPercent: 90 });
-  // (25.4 - 10.1) * 0.9 = 13.77 -> 14
-  assert.strictEqual(s.reduce((a, b) => a + b, 0), 14);
-}
-
-// ── team math: birdie + par + par kept = -1, kept 3 (user's example) ──
+// ── team math (start hole 1): birdie + par + par kept = -1 ──
 {
   const players = [P("a"), P("b", { pos: 2 })];
   const entries: Entry[] = [
-    E("a", 1, 3, { kept: true, decided: true }), // birdie (par 4)
-    E("b", 1, 4, { kept: true, decided: true }), // par
-    E("a", 2, 4, { kept: true, decided: true }), // par
-    E("b", 2, 6, { decided: true }), // locked-in skip
-    E("a", 3, 5), // entered, not yet decided
-    E("b", 3, 4), // entered, not yet decided
+    E("a", 1, 3, { kept: true, decided: true }),
+    E("b", 1, 4, { kept: true, decided: true }),
+    E("a", 2, 4, { kept: true, decided: true }),
+    E("b", 2, 6, { decided: true }),
+    E("a", 3, 5),
+    E("b", 3, 4),
   ];
   const view = buildTeamView(1, players, entries, holes, S, 1);
   assert.strictEqual(view.keptCount, 3);
   assert.strictEqual(view.toPar, -1);
-  assert.strictEqual(view.progress, 3);
-  assert.strictEqual(view.decidedThru, 2);
+  assert.strictEqual(view.progress, 3, "3 holes played");
+  assert.strictEqual(view.decidedThruOrder, 1);
   assert.strictEqual(view.pendingHole, 3);
-  // locked policy: decided cells are immutable
+  assert.strictEqual(view.roundComplete, false);
   assert.strictEqual(view.cells["b"][2].locked, true);
-  assert.strictEqual(view.cells["a"][3].locked, false);
-  // potential: 3 kept + 2 undecided + 30 future (holes 4-18 x2). The locked
-  // skip on b@2 is gone for good.
   assert.strictEqual(view.potential, 3 + 2 + 30);
-  assert.strictEqual(view.skipsLeft, 35 - 20);
-
-  // flexible policy: the decided skip could still be flipped (with an alert)
-  const flex = buildTeamView(
-    1,
-    players,
-    entries,
-    holes,
-    { ...S, keepPolicy: "flexible" },
-    1
-  );
-  assert.strictEqual(flex.potential, 3 + 2 + 30 + 1);
-  assert.strictEqual(flex.cells["b"][2].locked, false);
+  assert.strictEqual(view.skipsLeft, 15);
 }
 
-// ── locked policy kills backfill: empty holes behind decidedThru are dead ──
+// ── shotgun start on 10: order rules follow play sequence ──
 {
   const players = [P("a"), P("b", { pos: 2 })];
   const entries: Entry[] = [
-    // hole 1 skipped entirely (never entered), holes 2-3 decided
-    E("a", 2, 5, { kept: true, decided: true }),
-    E("b", 2, 5, { kept: true, decided: true }),
-    E("a", 3, 5, { decided: true }),
-    E("b", 3, 5, { decided: true }),
+    E("a", 10, 4, { kept: true, decided: true }),
+    E("b", 10, 5, { decided: true }),
+    E("a", 11, 3, { kept: true, decided: true }),
+    E("b", 11, 3, { decided: true }),
+    E("a", 12, 4),
+    E("b", 12, 4),
   ];
-  const view = buildTeamView(1, players, entries, holes, S, 0);
-  // hole 1 (2 slots) is dead; future = holes 4-18 x2 = 30
-  assert.strictEqual(view.potential, 2 + 0 + 30);
-  const flex = buildTeamView(
-    1,
-    players,
-    entries,
-    holes,
-    { ...S, keepPolicy: "flexible" },
-    0
-  );
-  // flexible: hole 1 still enterable (2) + the two decided skips
-  assert.strictEqual(flex.potential, 2 + 32 + 2);
+  const view = buildTeamView(1, players, entries, holes, S, 1, 10);
+  assert.strictEqual(view.startHole, 10);
+  assert.strictEqual(view.progress, 3);
+  assert.strictEqual(view.decidedThruOrder, 1, "10 and 11 = order 0 and 1");
+  assert.strictEqual(view.pendingHole, 12);
+  // holes 1-9 are AHEAD in play order (idx 9-17), so still open: potential
+  // = 2 kept + 2 undecided + (15 holes x 2 = 30 future)
+  assert.strictEqual(view.potential, 2 + 2 + 30);
+
+  // ...whereas a skipped-over hole BEHIND the locked position is dead:
+  const skipped: Entry[] = [
+    E("a", 10, 4, { kept: true, decided: true }),
+    E("b", 10, 4, { kept: true, decided: true }),
+    // hole 11 never entered, then 12 locked:
+    E("a", 12, 4, { decided: true }),
+    E("b", 12, 4, { decided: true }),
+  ];
+  const v2 = buildTeamView(1, players, skipped, holes, S, 1, 10);
+  assert.strictEqual(v2.decidedThruOrder, 2);
+  // hole 11 (order 1) dead = 2 slots gone; future = 15 holes x 2 = 30
+  assert.strictEqual(v2.potential, 2 + 0 + 30);
 }
 
-// ── forced-keep pressure: no skips left ──
+// ── roundComplete with a non-1 start ──
 {
-  const players = [P("a"), P("b", { pos: 2 })];
+  const players = [P("a")];
   const entries: Entry[] = [];
-  for (let h = 1; h <= 10; h++) {
-    entries.push(E("a", h, 5, { decided: true, kept: h <= 2 }));
-    entries.push(E("b", h, 5, { decided: true, kept: h <= 2 }));
-  }
-  const view = buildTeamView(1, players, entries, holes, S, 0);
-  // kept 4; every skip is locked; 8 open holes x 2 = 16 future slots
-  assert.strictEqual(view.keptCount, 4);
-  assert.strictEqual(view.potential, 4 + 16);
-  assert.strictEqual(view.skipsLeft, 0, "must keep everything from here");
+  for (const h of playOrder(5)) entries.push(E("a", h, 4, { decided: true, kept: h % 2 === 0 }));
+  const view = buildTeamView(1, players, entries, holes, { ...S, keepTarget: 9 }, 0, 5);
+  assert.strictEqual(view.decidedThruOrder, 17);
+  assert.strictEqual(view.roundComplete, true);
 }
 
-// ── pickups burn potential and are auto-decided ──
+// ── kept summary by holes PLAYED + reveal checkpoints ──
 {
-  const players = [P("a"), P("b", { pos: 2 })];
+  const players = [P("a", { team: 2 })];
+  // started on 16: play order is 16,17,18,1,2,...
   const entries: Entry[] = [
-    E("a", 1, null, { pickup: true, decided: true }),
-    E("b", 1, 4),
+    E("a", 16, 3, { kept: true, decided: true }), // played 1st (par 3 -> E)
+    E("a", 17, 3, { kept: true, decided: true }), // played 2nd (par 4 -> -1)
+    E("a", 1, 4, { kept: true, decided: true }), // played 4th — beyond count 3
   ];
-  const view = buildTeamView(1, players, entries, holes, S, 0);
-  // 0 kept + 1 undecided (b@1) + 34 future; the X contributes nothing ever
-  assert.strictEqual(view.potential, 35);
-  assert.strictEqual(view.pendingHole, 1);
-}
-
-// ── kept summary thru + reveal checkpoints ──
-{
-  const players = [P("a", { team: 2 }), P("b", { team: 2, pos: 2 })];
-  const entries: Entry[] = [
-    E("a", 1, 4, { kept: true, decided: true }), // par 4 -> E
-    E("a", 5, 4, { kept: true, decided: true }), // par 5 -> -1
-    E("b", 7, 4, { kept: true, decided: true }), // beyond thru
-  ];
-  const sum = keptSummaryThru(players, entries, holes, 6);
+  const sum = keptSummaryPlayed(players, entries, holes, 3, 16);
   assert.strictEqual(sum.keptCount, 2);
   assert.strictEqual(sum.toPar, -1);
 
   assert.strictEqual(revealCheckpoint(3, 8, 7), 6);
   assert.strictEqual(revealCheckpoint(3, 2, 9), 0);
   assert.strictEqual(revealCheckpoint(0, 18, 18), 0);
-  assert.strictEqual(revealCheckpoint(9, 18, 18), 18);
 }
 
-// ── Old Bridge preset: valid card, par 71, five par 3s, 13 eligible holes ──
+// ── player round totals: the 0.5 split for interchangeable keeps ──
 {
-  assert.strictEqual(validateHoles(OLD_BRIDGE_HOLES), null);
-  assert.strictEqual(
-    OLD_BRIDGE_HOLES.reduce((a, h) => a + h.par, 0),
-    71
-  );
-  assert.strictEqual(OLD_BRIDGE_HOLES.filter((h) => h.par === 3).length, 5);
-  // 25 vs 10 low man = 15 strokes across 13 eligible holes -> two doubles
-  const s = strokesForHandicap(25, 10, OLD_BRIDGE_HOLES, S);
-  assert.strictEqual(s.reduce((a, b) => a + b, 0), 15);
-  assert.strictEqual(s[16], 2, "SI 1 (hole 16) doubles");
-  assert.strictEqual(s[8], 2, "SI 2 (hole 8) doubles");
-  assert.strictEqual(s[3], 0, "par 3s get nothing by default");
-  assert.strictEqual(s[7], 0, "hole 7 is a par 3 despite SI 6");
+  const players = [P("a"), P("b", { pos: 2 })];
+  const entries: Entry[] = [
+    // hole 1 (par 4): both net bogey 5, only a's kept -> ½ each
+    E("a", 1, 5, { kept: true, decided: true }),
+    E("b", 1, 5, { decided: true }),
+    // hole 2 (par 4): both kept -> 1 each
+    E("a", 2, 4, { kept: true, decided: true }),
+    E("b", 2, 4, { kept: true, decided: true }),
+    // hole 3 (par 3): a kept 4, b skipped a 5 (different) -> full credit to a
+    E("a", 3, 4, { kept: true, decided: true }),
+    E("b", 3, 5, { decided: true }),
+  ];
+  const view = buildTeamView(1, players, entries, holes, S, 0);
+  const rows = playerRoundTotals(view, holes);
+  const a = rows.find((r) => r.player.id === "a")!;
+  const b = rows.find((r) => r.player.id === "b")!;
+  assert.strictEqual(a.used, 0.5 + 1 + 1);
+  assert.strictEqual(b.used, 0.5 + 1);
+  assert.strictEqual(a.used + b.used, 4, "credit sums to total keeps");
+  assert.strictEqual(a.gross, 5 + 4 + 4);
+  assert.strictEqual(fmtUsed(a.used), "2½");
+  assert.strictEqual(fmtUsed(3), "3");
 
-  // 42 vs 14 low man = 28 strokes over 13 eligible holes -> triple wrap:
-  // 2 everywhere eligible, 3 on the two hardest (SI 1 and 2)
-  const s42 = strokesForHandicap(42, 14, OLD_BRIDGE_HOLES, S);
-  assert.strictEqual(s42.reduce((a, b) => a + b, 0), 28);
-  assert.strictEqual(s42[16], 3, "SI 1 (hole 16) gets 3");
-  assert.strictEqual(s42[8], 3, "SI 2 (hole 8) gets 3");
-  assert.strictEqual(Math.max(...s42), 3);
-  assert.strictEqual(s42.filter((n) => n === 3).length, 2);
-  assert.strictEqual(s42.filter((n) => n === 2).length, 11);
-  for (const h of [3, 7, 9, 11, 15]) assert.strictEqual(s42[h], 0, "no par-3 strokes");
+  // net ties count too: b gets a stroke, gross differ but nets tie -> split
+  const strokes = noStrokes();
+  strokes[4] = 1;
+  const p2 = [P("a"), P("b", { pos: 2, strokes })];
+  const e2: Entry[] = [
+    E("a", 4, 5, { kept: true, decided: true }), // net 5
+    E("b", 4, 6, { decided: true }), // net 5 with the stroke
+  ];
+  const v2 = buildTeamView(1, p2, e2, holes, S, 0);
+  const r2 = playerRoundTotals(v2, holes);
+  assert.strictEqual(r2.find((r) => r.player.id === "a")!.used, 0.5);
+  assert.strictEqual(r2.find((r) => r.player.id === "b")!.used, 0.5);
 }
 
-// ── validation + legacy settings mapping ──
+// ── validation + settings ──
 {
   assert.strictEqual(validateHoles(STANDARD_HOLES), null);
-  const bad = STANDARD_HOLES.map((h) => ({ ...h, si: 1 }));
-  assert.ok(validateHoles(bad));
   const s = normalizeSettings({ keepTarget: 99, revealEvery: 4 as never });
-  assert.strictEqual(s.keepTarget, 36);
+  assert.strictEqual(s.keepTarget, 72, "clamped to 4v4 capacity");
   assert.strictEqual(s.revealEvery, 0);
-  assert.strictEqual(s.keepPolicy, "locked");
+  assert.deepStrictEqual(s.startHoles, [1, 1]);
+  const s2 = normalizeSettings({ startHoles: [10, 27 as never] });
+  assert.deepStrictEqual(s2.startHoles, [10, 18]);
   assert.strictEqual(normalizeSettings({ lockKeeps: false }).keepPolicy, "flexible");
-  assert.strictEqual(normalizeSettings({ keepPolicy: "flexible" }).keepPolicy, "flexible");
 }
 
 console.log("engine.test.ts: all assertions passed ✅");

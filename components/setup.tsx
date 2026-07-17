@@ -130,6 +130,39 @@ export function SettingsEditor({
       />
       <div className="flex items-center justify-between gap-3 py-2">
         <span>
+          <span className="block font-bold">Starting holes</span>
+          <span className="block text-sm text-faint">
+            For shotgun or split-tee starts
+          </span>
+        </span>
+        <span className="flex items-center gap-2">
+          {([0, 1] as const).map((i) => (
+            <label
+              key={i}
+              className="flex items-center gap-1 text-xs font-bold uppercase text-faint"
+            >
+              T{i + 1}
+              <select
+                className="input h-11 w-16 px-1 text-center"
+                value={settings.startHoles[i]}
+                onChange={(e) => {
+                  const next = [...settings.startHoles] as [number, number];
+                  next[i] = Number(e.target.value);
+                  set({ startHoles: next });
+                }}
+              >
+                {Array.from({ length: 18 }, (_, k) => k + 1).map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3 py-2">
+        <span>
           <span className="block font-bold">Handicap allowance</span>
           <span className="block text-sm text-faint">
             % of the difference off the low man

@@ -238,7 +238,7 @@ export function GameTab({
                 <li key={i}>
                   👁 They&apos;d kept <b>{p.keptCount}</b> at{" "}
                   <b>{fmtToPar(p.toPar)}</b>{" "}
-                  <span className="text-faint">(thru {p.thru})</span>
+                  <span className="text-faint">(after {p.thru} holes)</span>
                 </li>
               ))}
             </ul>
@@ -262,10 +262,17 @@ export function GameTab({
           </li>
           <li>
             {game.settings.revealEvery
-              ? `Kept counts auto-reveal every ${game.settings.revealEvery} holes` +
-                (nextReveal ? ` — next at hole ${nextReveal}` : "")
+              ? `Kept counts auto-reveal every ${game.settings.revealEvery} holes played` +
+                (nextReveal ? ` — next after ${nextReveal}` : "")
               : "No auto-reveals"}
           </li>
+          {(game.settings.startHoles[0] !== 1 ||
+            game.settings.startHoles[1] !== 1) && (
+            <li>
+              Starts — Team 1: hole {game.settings.startHoles[0]} · Team 2:
+              hole {game.settings.startHoles[1]}
+            </li>
+          )}
         </ul>
       </section>
 

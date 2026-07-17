@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
 
   const name = String(body.name ?? "").trim().slice(0, 60) || "20 Ball";
   const rawPlayers = Array.isArray(body.players) ? (body.players as NewPlayer[]) : [];
-  if (rawPlayers.length !== 4) return jsonError(400, "Exactly 4 players required.");
+  if (rawPlayers.length !== 4 && rawPlayers.length !== 8)
+    return jsonError(400, "Play 2v2 (4 players) or 4v4 (8 players).");
+  const teamSize = rawPlayers.length / 2;
 
   const players = rawPlayers.map((p, i) => ({
     name: String(p?.name ?? "").trim().slice(0, 24) || `Player ${i + 1}`,
@@ -35,11 +37,11 @@ export async function POST(req: NextRequest) {
     if (p.team !== 1 && p.team !== 2)
       return jsonError(400, "Each player must be on team 1 or 2.");
   }
-  if (players.filter((p) => p.team === 1).length !== 2)
-    return jsonError(400, "Each team needs exactly 2 players.");
+  if (players.filter((p) => p.team === 1).length !== teamSize)
+    return jsonError(400, `Each team needs exactly ${teamSize} players.`);
 
   const myIndex = Number(body.myIndex);
-  if (!Number.isInteger(myIndex) || myIndex < 0 || myIndex > 3)
+  if (!Number.isInteger(myIndex) || myIndex < 0 || myIndex >= players.length)
     return jsonError(400, "Pick which player is you.");
   const myTeam = players[myIndex].team;
 
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
   }));
 
   const settings = normalizeSettings(body.settings);
+  settings.keepTarget = Math.min(settings.keepTarget, teamSize * 18);
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = makeGameCode();

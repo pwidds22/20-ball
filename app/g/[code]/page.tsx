@@ -9,22 +9,23 @@ import { HoleView } from "@/components/game/hole-view";
 import { CardView } from "@/components/game/card-view";
 import { GameTab } from "@/components/game/game-tab";
 import { FinishModal } from "@/components/game/finish-modal";
-import { fmtToPar, type GameState } from "@/lib/engine";
+import { fmtToPar, orderIndex, playOrder, type GameState } from "@/lib/engine";
 
 type Tab = "hole" | "card" | "game";
 
 function firstOpenHole(state: GameState): number {
-  if (state.mine.pendingHole) return state.mine.pendingHole;
-  const start =
-    state.game.settings.keepPolicy === "locked"
-      ? state.mine.decidedThru + 1
-      : 1;
-  for (let h = Math.max(1, Math.min(start, 18)); h <= 18; h++) {
-    for (const p of state.mine.players) {
-      if (!state.mine.cells[p.id]?.[h]) return h;
+  const { mine, game } = state;
+  if (mine.pendingHole) return mine.pendingHole;
+  const order = playOrder(mine.startHole);
+  const locked = game.settings.keepPolicy === "locked";
+  for (const h of order) {
+    if (locked && orderIndex(h, mine.startHole) <= mine.decidedThruOrder)
+      continue;
+    for (const p of mine.players) {
+      if (!mine.cells[p.id]?.[h]) return h;
     }
   }
-  return 18;
+  return order[17];
 }
 
 function StatusHeader({
@@ -105,7 +106,7 @@ function StatusHeader({
                   <span className="ml-2">{fmtToPar(opp.reveal.toPar)}</span>
                 </p>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-cream/70">
-                  revealed thru {opp.reveal.thru}
+                  revealed · first {opp.reveal.thru} holes
                 </p>
               </>
             ) : (
@@ -115,8 +116,8 @@ function StatusHeader({
                 </p>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-cream/70">
                   {lastPeek
-                    ? `peek: ${lastPeek.keptCount} kept · ${fmtToPar(lastPeek.toPar)} (thru ${lastPeek.thru})`
-                    : `thru ${opp.progress || "—"} · face-down`}
+                    ? `peek: ${lastPeek.keptCount} kept · ${fmtToPar(lastPeek.toPar)} (after ${lastPeek.thru})`
+                    : `played ${opp.progress}/18 · face-down`}
                 </p>
               </>
             )}
@@ -266,8 +267,7 @@ export default function GamePage() {
       )}
 
       {state.game.status === "active" &&
-        state.mine.decidedThru === 18 &&
-        state.mine.pendingHole === null && (
+        state.mine.roundComplete && (
           <div className="flex items-center justify-between gap-2 bg-felt px-3 py-2 text-cream">
             <span className="text-sm font-bold">All 18 in the book 🏁</span>
             <button
