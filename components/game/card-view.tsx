@@ -213,6 +213,107 @@ export function TeamTable({
   );
 }
 
+function PlayerRounds({
+  teams,
+  holes,
+}: {
+  teams: TeamView[];
+  holes: HoleInfo[];
+}) {
+  const rows = teams
+    .flatMap((t) =>
+      t.players.map((p) => {
+        let gross = 0;
+        let net = 0;
+        let holesIn = 0;
+        let kept = 0;
+        let parSum = 0;
+        for (let h = 1; h <= 18; h++) {
+          const c = t.cells[p.id]?.[h];
+          if (!c || c.pickup || c.gross == null) continue;
+          gross += c.gross;
+          net += c.gross - (p.strokes[h] ?? 0);
+          parSum += holes[h - 1].par;
+          holesIn++;
+          if (c.kept) kept++;
+        }
+        return { team: t.team, p, gross, net, holesIn, kept, parSum };
+      })
+    )
+    .sort((a, b) => a.net - a.parSum - (b.net - b.parSum));
+  const anyShort = rows.some((r) => r.holesIn < 18);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="bg-felt px-3 py-2 font-display font-bold text-cream">
+        Player rounds
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs uppercase text-faint">
+            <th className="border-b-2 border-line p-2 text-left font-bold">
+              Player
+            </th>
+            <th className="border-b-2 border-line p-2 font-bold">Gross</th>
+            <th className="border-b-2 border-line p-2 font-bold">Net</th>
+            <th className="border-b-2 border-line p-2 font-bold">Kept</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.p.id} className="border-b border-line last:border-0">
+              <td className="p-2 text-left">
+                <span className="font-display font-bold">{r.p.name}</span>
+                <span className="ml-1.5 text-xs text-faint">
+                  T{r.team} · {r.p.handicap}
+                </span>
+              </td>
+              <td className="p-2 text-center tabular-nums">
+                {r.holesIn === 0 ? (
+                  "—"
+                ) : (
+                  <>
+                    <b>{r.gross}</b>
+                    {r.holesIn < 18 ? "*" : ""}{" "}
+                    <span className="text-xs text-faint">
+                      ({fmtToPar(r.gross - r.parSum)})
+                    </span>
+                  </>
+                )}
+              </td>
+              <td className="p-2 text-center tabular-nums">
+                {r.holesIn === 0 ? (
+                  "—"
+                ) : (
+                  <>
+                    <b>{r.net}</b>{" "}
+                    <span
+                      className={`text-xs ${
+                        r.net - r.parSum < 0 ? "text-under" : "text-faint"
+                      }`}
+                    >
+                      ({fmtToPar(r.net - r.parSum)})
+                    </span>
+                  </>
+                )}
+              </td>
+              <td className="p-2 text-center font-bold tabular-nums">
+                {r.kept}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {anyShort && (
+        <p className="px-3 py-2 text-[11px] text-faint">
+          * picked up or skipped entering some holes — totals cover finished
+          holes only
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function CardView({ state }: { state: GameState }) {
   const { game, mine, opp } = state;
 
@@ -221,6 +322,7 @@ export function CardView({ state }: { state: GameState }) {
     const nameOf = (t: TeamView) => t.players.map((p) => p.name).join(" & ");
     return (
       <div className="space-y-4 p-3">
+        <PlayerRounds teams={[t1, t2]} holes={game.holes} />
         <TeamTable
           view={t1}
           holes={game.holes}
