@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/client";
 import { CourseEditor, SettingsEditor } from "@/components/setup";
 import { Modal } from "@/components/ui";
+import { StrokeStrip } from "./stroke-strip";
 import {
   fmtToPar,
   validateHoles,
@@ -315,25 +316,12 @@ export function GameTab({
       <section className="card p-4">
         <p className="mb-2 text-sm font-bold">Strokes by hole</p>
         {allPlayers.map((p) => (
-          <div key={p.id} className="mb-1.5">
-            <p className="text-xs font-bold uppercase tracking-wider text-faint">
-              {p.name} — {p.strokes.reduce((a, b) => a + b, 0)} strokes
-            </p>
-            <div className="mt-0.5 grid grid-cols-18 gap-px" style={{ gridTemplateColumns: "repeat(18, 1fr)" }}>
-              {state.game.holes.map((h) => (
-                <div
-                  key={h.hole}
-                  className={`h-4 rounded-sm text-center text-[9px] font-bold leading-4 ${
-                    (p.strokes[h.hole] ?? 0) > 0
-                      ? "bg-felt text-cream"
-                      : "bg-ink/10 text-transparent"
-                  }`}
-                >
-                  {p.strokes[h.hole] > 1 ? p.strokes[h.hole] : ""}
-                </div>
-              ))}
-            </div>
-          </div>
+          <StrokeStrip
+            key={p.id}
+            name={p.name}
+            strokes={p.strokes}
+            holes={state.game.holes}
+          />
         ))}
         <p className="mt-1 text-[11px] text-faint">
           green = gets a stroke (number = 2+ strokes), off the low man&apos;s

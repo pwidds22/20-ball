@@ -7,6 +7,18 @@ import {
   type HoleInfo,
   type TeamView,
 } from "@/lib/engine";
+import { StrokeStrip } from "./stroke-strip";
+
+/** Corner dots marking handicap strokes, scorecard-style. */
+function Pips({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span className="absolute right-0.5 top-0 text-[8px] font-black leading-none text-gold">
+      {"•".repeat(Math.min(n, 3))}
+      {n > 3 ? "+" : ""}
+    </span>
+  );
+}
 
 function segmentTotals(view: TeamView, holes: HoleInfo[], from: number, to: number) {
   let kept = 0;
@@ -38,11 +50,15 @@ function Cell({
 }) {
   const c = view.cells[playerId]?.[hole];
   if (!c)
-    return <td className="border border-line p-1 text-center text-faint">·</td>;
+    return (
+      <td className="relative border border-line p-1 text-center text-faint">
+        <Pips n={strokes} />·
+      </td>
+    );
   if (c.pickup)
     return (
-      <td className="border border-line p-1 text-center font-bold text-faint">
-        X
+      <td className="relative border border-line p-1 text-center font-bold text-faint">
+        <Pips n={strokes} />X
       </td>
     );
   const net = (c.gross ?? 0) - strokes;
@@ -51,7 +67,8 @@ function Cell({
     netToPar < 0 ? "text-under" : netToPar > 0 ? "text-over" : "";
   const skipped = c.decided && !c.kept;
   return (
-    <td className="border border-line p-0.5 text-center">
+    <td className="relative border border-line p-0.5 text-center">
+      <Pips n={strokes} />
       <span
         className={`inline-flex min-w-9 items-baseline justify-center gap-1 rounded-md px-1 py-0.5 ${
           c.kept ? "bg-felt font-bold text-cream" : ""
@@ -189,8 +206,8 @@ export function TeamTable({
         </tbody>
       </table>
       <p className="px-3 py-2 text-[11px] text-faint">
-        big = gross · small = net · green = kept · struck = skipped · gold dots
-        = not locked in yet
+        big = gross · small = net · green = kept · struck = skipped · corner
+        dots = handicap strokes · dotted underline = not locked in yet
       </p>
     </div>
   );
@@ -244,6 +261,19 @@ export function CardView({ state }: { state: GameState }) {
         <p className="mt-2 text-xs font-bold uppercase tracking-widest text-faint">
           they&apos;re thru hole {opp.progress || "—"}
         </p>
+        <div className="mt-3 border-t border-line pt-2 text-left">
+          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-faint">
+            their strokes (holes 1-18)
+          </p>
+          {opp.players.map((p) => (
+            <StrokeStrip
+              key={p.id}
+              name={p.name}
+              strokes={p.strokes}
+              holes={game.holes}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
