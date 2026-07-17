@@ -1,0 +1,9 @@
+# Upload filter for `vercel deploy` (replaces .gitignore for uploads,
+# which lets the gitignored lib/config.ts ship with the deployment).
+node_modules
+.next
+.git
+.claude
+scripts
+*.tsbuildinfo
+next-env.d.ts
