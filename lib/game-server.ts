@@ -34,6 +34,7 @@ export type GameBundle = {
   members: { user_id: string; team: number }[];
   entries: Entry[];
   peeks: { team: number; thru: number; snapshot: { keptCount: number; toPar: number }; created_at: Date }[];
+  alerts: { team: number; message: string; created_at: Date }[];
 };
 
 export function jsonError(status: number, error: string) {
@@ -61,15 +62,19 @@ export async function loadGameByCode(code: string): Promise<GameBundle | null> {
   game.settings = parseJsonb<Settings>(game.settings);
   game.holes = parseJsonb<HoleInfo[]>(game.holes);
 
-  const [playerRows, members, scoreRows, peekRows] = await Promise.all([
-    sql`select id, team, pos, name, handicap::float8 as handicap
-        from twentyball.players where game_id = ${game.id} order by team, pos`,
-    sql`select user_id, team from twentyball.members where game_id = ${game.id}`,
-    sql`select player_id, hole, gross, pickup, kept
-        from twentyball.scores where game_id = ${game.id}`,
-    sql`select team, thru, snapshot, created_at
-        from twentyball.peeks where game_id = ${game.id} order by created_at`,
-  ]);
+  const [playerRows, members, scoreRows, peekRows, alertRows] =
+    await Promise.all([
+      sql`select id, team, pos, name, handicap::float8 as handicap
+          from twentyball.players where game_id = ${game.id} order by team, pos`,
+      sql`select user_id, team from twentyball.members where game_id = ${game.id}`,
+      sql`select player_id, hole, gross, pickup, kept, decided
+          from twentyball.scores where game_id = ${game.id}`,
+      sql`select team, thru, snapshot, created_at
+          from twentyball.peeks where game_id = ${game.id} order by created_at`,
+      sql`select team, message, created_at
+          from twentyball.alerts where game_id = ${game.id}
+          order by created_at desc limit 30`,
+    ]);
 
   const settings = game.settings;
   const holes = game.holes;
@@ -91,6 +96,7 @@ export async function loadGameByCode(code: string): Promise<GameBundle | null> {
     gross: s.gross,
     pickup: s.pickup,
     kept: s.kept,
+    decided: s.decided,
   }));
 
   return {
@@ -104,7 +110,36 @@ export async function loadGameByCode(code: string): Promise<GameBundle | null> {
       snapshot: parseJsonb<{ keptCount: number; toPar: number }>(p.snapshot),
       created_at: p.created_at,
     })),
+    alerts: alertRows as unknown as GameBundle["alerts"],
   };
+}
+
+/** Record a rules alert (score/decision changes) visible to both teams. */
+export async function insertAlert(
+  gameId: string,
+  team: number,
+  message: string
+) {
+  await sql`
+    insert into twentyball.alerts (game_id, team, message)
+    values (${gameId}, ${team}, ${message})`;
+}
+
+/** Highest hole this team has locked in. */
+export function teamDecidedThru(bundle: GameBundle, team: number) {
+  return teamEntries(bundle, team).reduce(
+    (m, e) => (e.decided ? Math.max(m, e.hole) : m),
+    0
+  );
+}
+
+/** Lowest hole with an entered score still awaiting its keep decision. */
+export function teamPendingHole(bundle: GameBundle, team: number) {
+  let pending: number | null = null;
+  for (const e of teamEntries(bundle, team)) {
+    if (!e.decided && (pending === null || e.hole < pending)) pending = e.hole;
+  }
+  return pending;
 }
 
 export function memberTeam(bundle: GameBundle, userId: string): number | null {
@@ -202,6 +237,11 @@ export function buildState(bundle: GameBundle, session: Session): GameState {
           at: new Date(p.created_at).toISOString(),
         })),
     },
+    alerts: bundle.alerts.map((a) => ({
+      team: a.team,
+      message: a.message,
+      at: new Date(a.created_at).toISOString(),
+    })),
   };
 
   if (game.status === "final") {

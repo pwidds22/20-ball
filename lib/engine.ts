@@ -7,6 +7,14 @@
 // scores its two players shoot across 18 holes — 0, 1, or 2 per hole. Net
 // scoring off the lowest handicap in the foursome. What the other team has
 // kept stays hidden except via peeks / scheduled reveals / the final card.
+//
+// Keep decisions are made explicitly, one hole at a time ("lock in the hole").
+// With keepPolicy "locked" (the classic anti-cheat rule) a locked hole is
+// immutable and you can't backfill scores on holes behind your locked
+// position. With "flexible", changes are allowed but every change on a locked
+// score raises an alert the other team can see.
+
+export type KeepPolicy = "locked" | "flexible";
 
 export type Settings = {
   /** Scores each team must keep for the round (default 20). */
@@ -17,8 +25,8 @@ export type Settings = {
   peeksPerTeam: number;
   /** 0 = never; 3/6/9 = both teams' kept summaries unlock every N holes. */
   revealEvery: number;
-  /** Keep decisions lock once your team enters a score on a later hole. */
-  lockKeeps: boolean;
+  /** "locked": decisions are final. "flexible": changes allowed but alerted. */
+  keepPolicy: KeepPolicy;
   /** Handicap allowance, e.g. 100 or 90 (default 100). */
   handicapPercent: number;
 };
@@ -28,7 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowPar3Strokes: false,
   peeksPerTeam: 1,
   revealEvery: 0,
-  lockKeeps: true,
+  keepPolicy: "locked",
   handicapPercent: 100,
 };
 
@@ -41,6 +49,8 @@ export type Entry = {
   gross: number | null;
   pickup: boolean;
   kept: boolean;
+  /** True once the keep/skip decision for this score has been locked in. */
+  decided: boolean;
 };
 
 export type PlayerInfo = {
@@ -57,6 +67,8 @@ export type ScoreCell = {
   gross: number | null;
   pickup: boolean;
   kept: boolean;
+  decided: boolean;
+  /** Decided under the "locked" policy — immutable. */
   locked: boolean;
 };
 
@@ -69,6 +81,10 @@ export type TeamView = {
   toPar: number;
   /** Highest hole this team has entered anything on. */
   progress: number;
+  /** Highest hole with a locked-in decision. */
+  decidedThru: number;
+  /** Lowest hole with an entered score still awaiting its decision. */
+  pendingHole: number | null;
   /** Max scores this team can still end up keeping (kept + undecided). */
   potential: number;
   /** potential - keepTarget: how many more scores they may still decline. */
@@ -93,6 +109,8 @@ export type OppView = {
   peeks: PeekRecord[];
 };
 
+export type AlertRecord = { team: number; message: string; at: string };
+
 export type GameMeta = {
   id: string;
   code: string;
@@ -109,6 +127,8 @@ export type GameState = {
   viewer: { userId: string; username: string; team: number; isCreator: boolean };
   mine: TeamView;
   opp: OppView;
+  /** Change alerts (both teams'), newest first. */
+  alerts: AlertRecord[];
   /** Populated once status === "final": full cards for both teams. */
   final?: { teams: TeamView[]; winner: number }; // winner 1|2, 0 = tie
 };
@@ -158,38 +178,56 @@ export function buildTeamView(
   const strokesById: Record<string, number[]> = {};
   for (const p of players) strokesById[p.id] = p.strokes;
 
+  const locked = settings.keepPolicy === "locked";
   const progress = entries.reduce((m, e) => Math.max(m, e.hole), 0);
-  const lockedBefore = settings.lockKeeps ? progress : 0;
+  const decidedThru = entries.reduce(
+    (m, e) => (e.decided ? Math.max(m, e.hole) : m),
+    0
+  );
+  let pendingHole: number | null = null;
+  for (const e of entries) {
+    if (!e.decided && (pendingHole === null || e.hole < pendingHole))
+      pendingHole = e.hole;
+  }
 
   const cells: TeamView["cells"] = {};
   for (const p of players) cells[p.id] = {};
 
   let keptCount = 0;
   let toPar = 0;
-  let decidables = 0;
+  let undecided = 0;
+  let decidedSkips = 0;
 
   for (const e of entries) {
-    const locked = e.hole < lockedBefore;
     cells[e.playerId][e.hole] = {
       gross: e.gross,
       pickup: e.pickup,
       kept: e.kept,
-      locked,
+      decided: e.decided,
+      locked: e.decided && locked,
     };
     if (e.kept && e.gross != null) {
       keptCount++;
       toPar += e.gross - strokesById[e.playerId][e.hole] - parByHole[e.hole];
-    } else if (!e.kept && !e.pickup && e.gross != null && !locked) {
-      decidables++;
+    } else if (!e.decided && !e.pickup && e.gross != null) {
+      undecided++;
+    } else if (e.decided && !e.kept && !e.pickup && e.gross != null) {
+      decidedSkips++;
     }
   }
 
-  let unscored = 0;
+  // Future slots: holes with no entry yet. Under the locked policy, holes at
+  // or behind the team's locked position are dead — no backfilling.
+  let futureSlots = 0;
   for (const p of players) {
-    for (let h = 1; h <= 18; h++) if (!cells[p.id][h]) unscored++;
+    for (let h = 1; h <= 18; h++) {
+      if (!cells[p.id][h] && (!locked || h > decidedThru)) futureSlots++;
+    }
   }
 
-  const potential = keptCount + decidables + unscored;
+  const potential =
+    keptCount + undecided + futureSlots + (locked ? 0 : decidedSkips);
+
   return {
     team,
     players,
@@ -197,6 +235,8 @@ export function buildTeamView(
     keptCount,
     toPar,
     progress,
+    decidedThru,
+    pendingHole,
     potential,
     skipsLeft: potential - settings.keepTarget,
     peeksLeft,
@@ -294,12 +334,18 @@ export function validateHoles(holes: unknown): string | null {
   return null;
 }
 
-export function normalizeSettings(input: Partial<Settings> | undefined): Settings {
+export function normalizeSettings(
+  input: (Partial<Settings> & { lockKeeps?: boolean }) | undefined
+): Settings {
   const s = { ...DEFAULT_SETTINGS, ...(input ?? {}) };
   const int = (v: unknown, lo: number, hi: number, dflt: number) => {
     const n = Math.round(Number(v));
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
   };
+  // Accept the legacy lockKeeps boolean from older payloads.
+  let policy: KeepPolicy = s.keepPolicy === "flexible" ? "flexible" : "locked";
+  if (input && "lockKeeps" in input && input.keepPolicy === undefined)
+    policy = input.lockKeeps === false ? "flexible" : "locked";
   return {
     keepTarget: int(s.keepTarget, 1, 36, 20),
     allowPar3Strokes: !!s.allowPar3Strokes,
@@ -307,7 +353,7 @@ export function normalizeSettings(input: Partial<Settings> | undefined): Setting
     revealEvery: [0, 3, 6, 9].includes(Number(s.revealEvery))
       ? Number(s.revealEvery)
       : 0,
-    lockKeeps: !!s.lockKeeps,
+    keepPolicy: policy,
     handicapPercent: int(s.handicapPercent, 50, 150, 100),
   };
 }

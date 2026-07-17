@@ -43,9 +43,12 @@ export async function POST(
 
   const warnings: string[] = [];
   for (const team of [1, 2]) {
-    const entered = teamEntries(bundle, team).length;
-    if (entered < 36)
-      warnings.push(`Team ${team} has ${36 - entered} score(s) not entered.`);
+    const entries = teamEntries(bundle, team);
+    if (entries.length < 36)
+      warnings.push(`Team ${team} has ${36 - entries.length} score(s) not entered.`);
+    const undecided = entries.filter((e) => !e.decided).length;
+    if (undecided > 0)
+      warnings.push(`Team ${team} has ${undecided} score(s) not locked in.`);
     const kept = teamKeptCount(bundle, team);
     if (kept !== bundle.game.settings.keepTarget)
       warnings.push(
@@ -57,6 +60,9 @@ export async function POST(
     return NextResponse.json({ warnings }, { status: 409 });
   }
 
+  await sql`
+    update twentyball.scores set decided = true
+    where game_id = ${bundle.game.id} and decided = false`;
   await sql`
     update twentyball.games set status = 'final', finalized_at = now()
     where id = ${bundle.game.id}`;

@@ -49,14 +49,23 @@ function Cell({
   const netToPar = net - par;
   const netColor =
     netToPar < 0 ? "text-under" : netToPar > 0 ? "text-over" : "";
+  const skipped = c.decided && !c.kept;
   return (
     <td className="border border-line p-0.5 text-center">
       <span
         className={`inline-flex min-w-9 items-baseline justify-center gap-1 rounded-md px-1 py-0.5 ${
           c.kept ? "bg-felt font-bold text-cream" : ""
+        } ${skipped ? "opacity-50" : ""} ${
+          !c.decided ? "border-b-2 border-dotted border-gold" : ""
         }`}
       >
-        <span className="text-base font-bold tabular-nums">{c.gross}</span>
+        <span
+          className={`text-base font-bold tabular-nums ${
+            skipped ? "line-through" : ""
+          }`}
+        >
+          {c.gross}
+        </span>
         <span
           className={`text-[10px] tabular-nums ${
             c.kept ? "text-gold" : netColor
@@ -180,7 +189,8 @@ export function TeamTable({
         </tbody>
       </table>
       <p className="px-3 py-2 text-[11px] text-faint">
-        big number = gross · small = net · green = kept
+        big = gross · small = net · green = kept · struck = skipped · gold dots
+        = not locked in yet
       </p>
     </div>
   );

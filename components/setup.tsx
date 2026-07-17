@@ -123,10 +123,10 @@ export function SettingsEditor({
         onChange={(v) => set({ allowPar3Strokes: v })}
       />
       <Toggle
-        label="Lock keeps"
-        hint="Decisions freeze once your team scores a later hole"
-        checked={settings.lockKeeps}
-        onChange={(v) => set({ lockKeeps: v })}
+        label="Decisions are final"
+        hint="Off = keeps can change later, but the other team gets alerted"
+        checked={settings.keepPolicy === "locked"}
+        onChange={(v) => set({ keepPolicy: v ? "locked" : "flexible" })}
       />
       <div className="flex items-center justify-between gap-3 py-2">
         <span>

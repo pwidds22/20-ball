@@ -273,7 +273,9 @@ export function GameTab({
             {game.settings.handicapPercent}% allowance
           </li>
           <li>
-            Keeps {game.settings.lockKeeps ? "lock when you score a later hole" : "stay editable"}
+            {game.settings.keepPolicy === "locked"
+              ? "Keep decisions are FINAL — no take-backs"
+              : "Decisions can change, but the other team gets alerted"}
           </li>
           <li>
             {game.settings.revealEvery
@@ -283,6 +285,32 @@ export function GameTab({
           </li>
         </ul>
       </section>
+
+      {state.alerts.length > 0 && (
+        <section className="card p-4">
+          <p className="mb-2 text-sm font-bold">⚠ Change log</p>
+          <ul className="space-y-1.5 text-sm">
+            {state.alerts.map((a, i) => (
+              <li
+                key={i}
+                className={
+                  a.team === viewer.team
+                    ? "text-faint"
+                    : "font-bold text-danger"
+                }
+              >
+                {a.message}
+                <span className="ml-1 text-xs font-normal text-faint">
+                  {new Date(a.at).toLocaleTimeString(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card p-4">
         <p className="mb-2 text-sm font-bold">Strokes by hole</p>

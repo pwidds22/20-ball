@@ -18,6 +18,30 @@ import {
 const S = { ...DEFAULT_SETTINGS };
 const holes = STANDARD_HOLES;
 const par3s = holes.filter((h) => h.par === 3).map((h) => h.hole);
+const noStrokes = () => new Array<number>(19).fill(0);
+const P = (id: string, extra?: Partial<PlayerInfo>): PlayerInfo => ({
+  id,
+  team: 1,
+  pos: 1,
+  name: id.toUpperCase(),
+  handicap: 0,
+  strokes: noStrokes(),
+  ...extra,
+});
+const E = (
+  playerId: string,
+  hole: number,
+  gross: number | null,
+  opts?: Partial<Entry>
+): Entry => ({
+  playerId,
+  hole,
+  gross,
+  pickup: false,
+  kept: false,
+  decided: false,
+  ...opts,
+});
 
 // ── strokes: the user's exact example (10, 15, 20, 25 handicaps) ──
 {
@@ -26,7 +50,6 @@ const par3s = holes.filter((h) => h.par === 3).map((h) => h.hole);
 
   const s15 = strokesForHandicap(15, 10, holes, S);
   assert.strictEqual(s15.reduce((a, b) => a + b, 0), 5, "15 hcp gets 5 strokes");
-  // strokes fall on the 5 hardest NON-par-3 holes
   const eligible = holes.filter((h) => h.par > 3).sort((a, b) => a.si - b.si);
   for (const h of eligible.slice(0, 5))
     assert.strictEqual(s15[h.hole], 1, `stroke on SI ${h.si}`);
@@ -60,77 +83,102 @@ const par3s = holes.filter((h) => h.par === 3).map((h) => h.hole);
 
 // ── team math: birdie + par + par kept = -1, kept 3 (user's example) ──
 {
-  const players: PlayerInfo[] = [
-    { id: "a", team: 1, pos: 1, name: "A", handicap: 10, strokes: new Array(19).fill(0) },
-    { id: "b", team: 1, pos: 2, name: "B", handicap: 10, strokes: new Array(19).fill(0) },
-  ];
+  const players = [P("a"), P("b", { pos: 2 })];
   const entries: Entry[] = [
-    { playerId: "a", hole: 1, gross: 3, pickup: false, kept: true }, // birdie (par 4)
-    { playerId: "b", hole: 1, gross: 4, pickup: false, kept: true }, // par
-    { playerId: "a", hole: 2, gross: 4, pickup: false, kept: true }, // par
-    { playerId: "b", hole: 2, gross: 6, pickup: false, kept: false }, // skipped
-    { playerId: "a", hole: 3, gross: 5, pickup: false, kept: false }, // undecided (current)
+    E("a", 1, 3, { kept: true, decided: true }), // birdie (par 4)
+    E("b", 1, 4, { kept: true, decided: true }), // par
+    E("a", 2, 4, { kept: true, decided: true }), // par
+    E("b", 2, 6, { decided: true }), // locked-in skip
+    E("a", 3, 5), // entered, not yet decided
+    E("b", 3, 4), // entered, not yet decided
   ];
   const view = buildTeamView(1, players, entries, holes, S, 1);
   assert.strictEqual(view.keptCount, 3);
   assert.strictEqual(view.toPar, -1);
   assert.strictEqual(view.progress, 3);
-  // locked: entries on holes < 3 are locked (lockKeeps on)
+  assert.strictEqual(view.decidedThru, 2);
+  assert.strictEqual(view.pendingHole, 3);
+  // locked policy: decided cells are immutable
   assert.strictEqual(view.cells["b"][2].locked, true);
   assert.strictEqual(view.cells["a"][3].locked, false);
-  // potential: 3 kept + 1 decidable (a@3) + unscored (b@3 = 1, both 4..18 = 30) = 35
-  assert.strictEqual(view.potential, 3 + 1 + 1 + 30);
+  // potential: 3 kept + 2 undecided + 30 future (holes 4-18 x2). The locked
+  // skip on b@2 is gone for good.
+  assert.strictEqual(view.potential, 3 + 2 + 30);
   assert.strictEqual(view.skipsLeft, 35 - 20);
+
+  // flexible policy: the decided skip could still be flipped (with an alert)
+  const flex = buildTeamView(
+    1,
+    players,
+    entries,
+    holes,
+    { ...S, keepPolicy: "flexible" },
+    1
+  );
+  assert.strictEqual(flex.potential, 3 + 2 + 30 + 1);
+  assert.strictEqual(flex.cells["b"][2].locked, false);
+}
+
+// ── locked policy kills backfill: empty holes behind decidedThru are dead ──
+{
+  const players = [P("a"), P("b", { pos: 2 })];
+  const entries: Entry[] = [
+    // hole 1 skipped entirely (never entered), holes 2-3 decided
+    E("a", 2, 5, { kept: true, decided: true }),
+    E("b", 2, 5, { kept: true, decided: true }),
+    E("a", 3, 5, { decided: true }),
+    E("b", 3, 5, { decided: true }),
+  ];
+  const view = buildTeamView(1, players, entries, holes, S, 0);
+  // hole 1 (2 slots) is dead; future = holes 4-18 x2 = 30
+  assert.strictEqual(view.potential, 2 + 0 + 30);
+  const flex = buildTeamView(
+    1,
+    players,
+    entries,
+    holes,
+    { ...S, keepPolicy: "flexible" },
+    0
+  );
+  // flexible: hole 1 still enterable (2) + the two decided skips
+  assert.strictEqual(flex.potential, 2 + 32 + 2);
 }
 
 // ── forced-keep pressure: no skips left ──
 {
-  const strokes = new Array(19).fill(0);
-  const players: PlayerInfo[] = [
-    { id: "a", team: 1, pos: 1, name: "A", handicap: 0, strokes },
-    { id: "b", team: 1, pos: 2, name: "B", handicap: 0, strokes },
-  ];
-  // Through 10 holes both players scored, only 4 kept, everything else skipped/locked.
+  const players = [P("a"), P("b", { pos: 2 })];
   const entries: Entry[] = [];
   for (let h = 1; h <= 10; h++) {
-    entries.push({ playerId: "a", hole: h, gross: 5, pickup: false, kept: h <= 2 });
-    entries.push({ playerId: "b", hole: h, gross: 5, pickup: false, kept: h <= 2 });
+    entries.push(E("a", h, 5, { decided: true, kept: h <= 2 }));
+    entries.push(E("b", h, 5, { decided: true, kept: h <= 2 }));
   }
   const view = buildTeamView(1, players, entries, holes, S, 0);
-  // kept 4; hole 10 (current hole) stays decidable = 2; 8 unscored holes x 2 = 16.
-  // Locked skips on holes 1-9 are gone for good.
+  // kept 4; every skip is locked; 8 open holes x 2 = 16 future slots
   assert.strictEqual(view.keptCount, 4);
-  assert.strictEqual(view.potential, 4 + 2 + 16);
-  assert.strictEqual(view.skipsLeft, 2, "only two declines left");
+  assert.strictEqual(view.potential, 4 + 16);
+  assert.strictEqual(view.skipsLeft, 0, "must keep everything from here");
 }
 
-// ── pickups burn potential ──
+// ── pickups burn potential and are auto-decided ──
 {
-  const strokes = new Array(19).fill(0);
-  const players: PlayerInfo[] = [
-    { id: "a", team: 1, pos: 1, name: "A", handicap: 0, strokes },
-    { id: "b", team: 1, pos: 2, name: "B", handicap: 0, strokes },
-  ];
+  const players = [P("a"), P("b", { pos: 2 })];
   const entries: Entry[] = [
-    { playerId: "a", hole: 1, gross: null, pickup: true, kept: false },
-    { playerId: "b", hole: 1, gross: 4, pickup: false, kept: false },
+    E("a", 1, null, { pickup: true, decided: true }),
+    E("b", 1, 4),
   ];
   const view = buildTeamView(1, players, entries, holes, S, 0);
-  // potential = 0 kept + 1 decidable (b@1) + 34 unscored = 35 (pickup contributes nothing)
+  // 0 kept + 1 undecided (b@1) + 34 future; the X contributes nothing ever
   assert.strictEqual(view.potential, 35);
+  assert.strictEqual(view.pendingHole, 1);
 }
 
 // ── kept summary thru + reveal checkpoints ──
 {
-  const strokes = new Array(19).fill(0);
-  const players: PlayerInfo[] = [
-    { id: "a", team: 2, pos: 1, name: "A", handicap: 0, strokes },
-    { id: "b", team: 2, pos: 2, name: "B", handicap: 0, strokes },
-  ];
+  const players = [P("a", { team: 2 }), P("b", { team: 2, pos: 2 })];
   const entries: Entry[] = [
-    { playerId: "a", hole: 1, gross: 4, pickup: false, kept: true }, // par 4 -> E
-    { playerId: "a", hole: 5, gross: 4, pickup: false, kept: true }, // par 5 -> -1
-    { playerId: "b", hole: 7, gross: 4, pickup: false, kept: true }, // beyond thru
+    E("a", 1, 4, { kept: true, decided: true }), // par 4 -> E
+    E("a", 5, 4, { kept: true, decided: true }), // par 5 -> -1
+    E("b", 7, 4, { kept: true, decided: true }), // beyond thru
   ];
   const sum = keptSummaryThru(players, entries, holes, 6);
   assert.strictEqual(sum.keptCount, 2);
@@ -142,7 +190,7 @@ const par3s = holes.filter((h) => h.par === 3).map((h) => h.hole);
   assert.strictEqual(revealCheckpoint(9, 18, 18), 18);
 }
 
-// ── validation ──
+// ── validation + legacy settings mapping ──
 {
   assert.strictEqual(validateHoles(STANDARD_HOLES), null);
   const bad = STANDARD_HOLES.map((h) => ({ ...h, si: 1 }));
@@ -150,6 +198,9 @@ const par3s = holes.filter((h) => h.par === 3).map((h) => h.hole);
   const s = normalizeSettings({ keepTarget: 99, revealEvery: 4 as never });
   assert.strictEqual(s.keepTarget, 36);
   assert.strictEqual(s.revealEvery, 0);
+  assert.strictEqual(s.keepPolicy, "locked");
+  assert.strictEqual(normalizeSettings({ lockKeeps: false }).keepPolicy, "flexible");
+  assert.strictEqual(normalizeSettings({ keepPolicy: "flexible" }).keepPolicy, "flexible");
 }
 
 console.log("engine.test.ts: all assertions passed ✅");

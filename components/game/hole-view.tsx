@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Modal } from "@/components/ui";
 import {
   netLabel,
   type GameState,
@@ -46,7 +47,14 @@ function ScoreGrid({
       <div className="mt-1.5 flex gap-1.5">
         <button
           disabled={disabled}
-          onClick={onPickup}
+          onClick={() => {
+            if (
+              window.confirm(
+                "Mark an X (picked up)? An X can never be kept, and it counts as decided right away."
+              )
+            )
+              onPickup();
+          }}
           className="btn btn-paper h-10 flex-1 text-sm text-danger"
         >
           X · picked up
@@ -74,39 +82,78 @@ function ScoreGrid({
   );
 }
 
+function ScoreReadout({
+  cell,
+  strokes,
+  par,
+  inverse,
+}: {
+  cell: ScoreCell;
+  strokes: number;
+  par: number;
+  inverse?: boolean;
+}) {
+  const net = (cell.gross ?? 0) - strokes;
+  const netToPar = net - par;
+  const labelColor =
+    netToPar < 0 ? "text-under" : netToPar > 0 ? "text-over" : "text-felt";
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="font-display text-5xl font-black tabular-nums">
+        {cell.gross}
+      </span>
+      <span>
+        <span className="block text-sm font-bold">net {net}</span>
+        <span
+          className={`block text-xs font-black uppercase tracking-wider ${
+            inverse ? "text-gold" : labelColor
+          }`}
+        >
+          {netLabel(netToPar)}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function PlayerPanel({
   player,
   cell,
   hole,
   par,
   active,
-  atKeepCap,
+  policy,
   busy,
+  holeClosed,
+  selection,
+  onSelect,
   onEnter,
   onPickup,
   onClear,
-  onToggleKeep,
+  onRequestChange,
 }: {
   player: PlayerInfo;
   cell: ScoreCell | undefined;
   hole: number;
   par: number;
   active: boolean;
-  atKeepCap: boolean;
+  policy: "locked" | "flexible";
   busy: boolean;
+  holeClosed: boolean;
+  selection: boolean | undefined;
+  onSelect: (keep: boolean) => void;
   onEnter: (gross: number) => Promise<void>;
   onPickup: () => Promise<void>;
   onClear: () => Promise<void>;
-  onToggleKeep: () => Promise<void>;
+  onRequestChange: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  useEffect(() => setEditing(false), [hole]);
   const strokes = player.strokes[hole] ?? 0;
-  const showGrid = active && (!cell || editing);
 
-  const net = cell?.gross != null ? cell.gross - strokes : null;
-  const netToPar = net != null ? net - par : 0;
-  const labelColor =
-    netToPar < 0 ? "text-under" : netToPar > 0 ? "text-over" : "text-felt";
+  const canUseGrid =
+    active && (!cell || (!cell.decided && editing) || (cell.decided && policy === "flexible" && editing));
+  const showGrid = active && ((!cell && !holeClosed) || editing) && canUseGrid;
 
   return (
     <div className="card p-3">
@@ -117,7 +164,7 @@ function PlayerPanel({
             {player.handicap}
           </span>
         </span>
-        <span className="text-gold" title={`${strokes} stroke(s) here`}>
+        <span className="text-gold">
           {strokes > 0 ? "●".repeat(Math.min(strokes, 4)) : ""}
           {strokes > 0 && (
             <span className="ml-1 text-xs font-bold uppercase text-faint">
@@ -147,71 +194,62 @@ function PlayerPanel({
           onCancel={() => setEditing(false)}
         />
       ) : !cell ? (
-        <p className="py-3 text-center text-sm text-faint">Round is final.</p>
+        <p className="py-3 text-center text-sm text-faint">
+          {holeClosed
+            ? "Hole closed — locked without a score."
+            : "Round is final."}
+        </p>
       ) : cell.pickup ? (
         <div>
           <div className="flex items-center justify-between rounded-xl border-2 border-dashed border-ink/25 bg-ink/5 p-3">
             <span className="font-display text-3xl font-black text-faint">
               X
             </span>
-            <span className="chip bg-ink/10 text-faint">picked up · no keep</span>
+            <span className="chip bg-ink/10 text-faint">
+              picked up · auto-skip
+            </span>
           </div>
-          {active && (
+          {active && policy === "flexible" && (
             <button
               className="mt-1.5 text-xs font-bold text-faint underline"
               onClick={() => setEditing(true)}
             >
-              ✎ change
+              ✎ change (alerts the other team)
             </button>
           )}
         </div>
-      ) : (
+      ) : !cell.decided ? (
         <div>
-          <button
-            disabled={!active || cell.locked || busy || (!cell.kept && atKeepCap)}
-            onClick={onToggleKeep}
-            className={`w-full rounded-xl border-2 p-3 text-left transition-colors disabled:cursor-not-allowed ${
-              cell.kept
-                ? "pop border-felt-deep bg-felt text-cream"
-                : "border-ink/20 bg-paper active:bg-ink/5"
-            }`}
-          >
+          <div className="rounded-xl border-2 border-ink/20 bg-paper p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-baseline gap-3">
-                <span className="font-display text-5xl font-black tabular-nums">
-                  {cell.gross}
-                </span>
-                <span>
-                  <span className="block text-sm font-bold">
-                    net {net}
-                  </span>
-                  <span
-                    className={`block text-xs font-black uppercase tracking-wider ${
-                      cell.kept ? "text-gold" : labelColor
-                    }`}
-                  >
-                    {netLabel(netToPar)}
-                  </span>
-                </span>
+              <ScoreReadout cell={cell} strokes={strokes} par={par} />
+              <div className="flex flex-col gap-1.5">
+                <button
+                  disabled={!active || busy}
+                  onClick={() => onSelect(true)}
+                  className={`btn h-10 px-4 text-sm ${
+                    selection === true
+                      ? "btn-felt"
+                      : "btn-paper border-dashed"
+                  }`}
+                >
+                  Keep
+                </button>
+                <button
+                  disabled={!active || busy}
+                  onClick={() => onSelect(false)}
+                  className={`btn h-10 px-4 text-sm ${
+                    selection === false
+                      ? "bg-ink text-cream"
+                      : "btn-paper border-dashed"
+                  }`}
+                >
+                  Skip
+                </button>
               </div>
-              <span className="text-right">
-                {cell.kept ? (
-                  <span className="chip bg-cream/25 text-cream">kept ✓</span>
-                ) : cell.locked ? (
-                  <span className="chip bg-ink/10 text-faint">
-                    skipped · locked
-                  </span>
-                ) : atKeepCap ? (
-                  <span className="chip bg-ink/10 text-faint">at cap</span>
-                ) : (
-                  <span className="chip border-2 border-dashed border-ink/30 text-faint">
-                    tap to keep
-                  </span>
-                )}
-              </span>
             </div>
-          </button>
-          {active && !cell.locked && (
+          </div>
+          {active && (
             <button
               className="mt-1.5 text-xs font-bold text-faint underline"
               onClick={() => setEditing(true)}
@@ -219,10 +257,48 @@ function PlayerPanel({
               ✎ edit score
             </button>
           )}
-          {active && cell.locked && (
-            <p className="mt-1.5 text-xs text-faint">
-              🔒 locked — your team scored a later hole
-            </p>
+        </div>
+      ) : (
+        <div>
+          <div
+            className={`rounded-xl border-2 p-3 ${
+              cell.kept
+                ? "border-felt-deep bg-felt text-cream"
+                : "border-ink/15 bg-ink/5"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className={cell.kept ? "" : "opacity-60"}>
+                <ScoreReadout
+                  cell={cell}
+                  strokes={strokes}
+                  par={par}
+                  inverse={cell.kept}
+                />
+              </div>
+              <span className="text-right">
+                {cell.kept ? (
+                  <span className="chip bg-cream/25 text-cream">
+                    kept ✓ {policy === "locked" ? "🔒" : ""}
+                  </span>
+                ) : (
+                  <span className="chip bg-ink/10 text-faint">
+                    skipped {policy === "locked" ? "🔒" : ""}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+          {active && policy === "flexible" && (
+            <button
+              className="mt-1.5 text-xs font-bold text-danger underline"
+              onClick={onRequestChange}
+            >
+              change decision (alerts the other team)
+            </button>
+          )}
+          {active && policy === "locked" && (
+            <p className="mt-1.5 text-xs text-faint">🔒 locked in — final</p>
           )}
         </div>
       )}
@@ -244,30 +320,84 @@ export function HoleView({
   const { game, mine } = state;
   const info = game.holes[hole - 1];
   const active = game.status === "active";
+  const policy = game.settings.keepPolicy;
+  const target = game.settings.keepTarget;
   const [busy, setBusy] = useState(false);
-  const atKeepCap = mine.keptCount >= game.settings.keepTarget;
+  const [selections, setSelections] = useState<Record<string, boolean>>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [changeReq, setChangeReq] = useState<{
+    player: PlayerInfo;
+    cell: ScoreCell;
+  } | null>(null);
+
+  useEffect(() => {
+    setSelections({});
+    setConfirmOpen(false);
+  }, [hole]);
 
   const run = async (path: string, body: unknown) => {
     setBusy(true);
-    await mutate(path, body);
+    const ok = await mutate(path, body);
     setBusy(false);
+    return ok;
   };
   const base = `/api/games/${game.code}`;
 
-  const bothEntered = mine.players.every((p) => mine.cells[p.id]?.[hole]);
+  const cellOf = (p: PlayerInfo) => mine.cells[p.id]?.[hole];
+  const undecided = mine.players.filter((p) => {
+    const c = cellOf(p);
+    return c && !c.decided && !c.pickup;
+  });
+  const blockedBy =
+    active &&
+    policy === "locked" &&
+    mine.pendingHole !== null &&
+    mine.pendingHole < hole
+      ? mine.pendingHole
+      : null;
+  const holeClosed =
+    active && policy === "locked" && hole <= mine.decidedThru;
+
+  const allSelected = undecided.every((p) => selections[p.id] !== undefined);
+  const keepAdds = undecided.filter((p) => selections[p.id] === true).length;
+  const wouldKeep = mine.keptCount + keepAdds;
+  const overCap = wouldKeep > target;
+
+  const allSettled =
+    mine.players.every((p) => {
+      const c = cellOf(p);
+      return c ? c.decided : holeClosed;
+    }) && mine.players.some((p) => cellOf(p));
 
   const holeStatus = (h: number) => {
     let entered = 0;
     let kept = 0;
+    let undec = 0;
     for (const p of mine.players) {
       const c = mine.cells[p.id]?.[h];
       if (c) entered++;
       if (c?.kept) kept++;
+      if (c && !c.decided) undec++;
     }
+    if (undec > 0) return "bg-gold/70 border-gold";
     if (kept > 0) return "bg-felt text-cream border-felt-deep";
     if (entered === 2) return "bg-ink/70 text-cream border-ink/70";
     if (entered === 1) return "bg-ink/25 border-ink/25";
     return "bg-paper border-ink/20";
+  };
+
+  const lockIn = async () => {
+    const ok = await run(`${base}/decide`, {
+      hole,
+      decisions: undecided.map((p) => ({
+        playerId: p.id,
+        keep: selections[p.id],
+      })),
+    });
+    if (ok) {
+      setConfirmOpen(false);
+      setSelections({});
+    }
   };
 
   return (
@@ -311,36 +441,177 @@ export function HoleView({
         </button>
       </div>
 
-      {mine.players.map((p) => (
-        <PlayerPanel
-          key={p.id}
-          player={p}
-          cell={mine.cells[p.id]?.[hole]}
-          hole={hole}
-          par={info.par}
-          active={active}
-          atKeepCap={atKeepCap}
-          busy={busy}
-          onEnter={(gross) => run(`${base}/score`, { playerId: p.id, hole, gross })}
-          onPickup={() => run(`${base}/score`, { playerId: p.id, hole, pickup: true })}
-          onClear={() => run(`${base}/score`, { playerId: p.id, hole, clear: true })}
-          onToggleKeep={() =>
-            run(`${base}/keep`, {
-              playerId: p.id,
-              hole,
-              kept: !mine.cells[p.id]?.[hole]?.kept,
-            })
-          }
-        />
-      ))}
+      {blockedBy && (
+        <div className="card border-gold bg-gold/15 p-3 text-center">
+          <p className="text-sm font-bold">
+            Lock in hole {blockedBy} before scoring this one.
+          </p>
+          <button
+            className="btn btn-gold mt-2 h-10 px-4 text-sm"
+            onClick={() => setHole(blockedBy)}
+          >
+            Go to hole {blockedBy}
+          </button>
+        </div>
+      )}
 
-      {bothEntered && hole < 18 && (
+      {!blockedBy &&
+        mine.players.map((p) => (
+          <PlayerPanel
+            key={p.id}
+            player={p}
+            cell={cellOf(p)}
+            hole={hole}
+            par={info.par}
+            active={active}
+            policy={policy}
+            busy={busy}
+            holeClosed={holeClosed}
+            selection={selections[p.id]}
+            onSelect={(keep) =>
+              setSelections((s) => ({ ...s, [p.id]: keep }))
+            }
+            onEnter={async (gross) => {
+              await run(`${base}/score`, { playerId: p.id, hole, gross });
+            }}
+            onPickup={async () => {
+              await run(`${base}/score`, { playerId: p.id, hole, pickup: true });
+            }}
+            onClear={async () => {
+              await run(`${base}/score`, { playerId: p.id, hole, clear: true });
+            }}
+            onRequestChange={() => {
+              const c = cellOf(p);
+              if (c) setChangeReq({ player: p, cell: c });
+            }}
+          />
+        ))}
+
+      {active && !blockedBy && undecided.length > 0 && (
+        <div className="card sticky bottom-20 border-felt bg-paper p-3 shadow-xl">
+          {overCap && (
+            <p className="mb-2 text-center text-sm font-bold text-danger">
+              That&apos;s {wouldKeep}/{target} kept — too many. Skip something.
+            </p>
+          )}
+          <button
+            className="btn btn-felt h-12 w-full text-base"
+            disabled={!allSelected || overCap || busy}
+            onClick={() => setConfirmOpen(true)}
+          >
+            🔒 Lock in hole {hole}
+          </button>
+          {!allSelected && (
+            <p className="mt-1.5 text-center text-xs font-bold uppercase tracking-wider text-faint">
+              choose keep or skip for each score first
+            </p>
+          )}
+        </div>
+      )}
+
+      {allSettled && hole < 18 && (
         <button
           className="btn btn-gold h-12 w-full text-base"
           onClick={() => setHole(hole + 1)}
         >
           Next hole →
         </button>
+      )}
+
+      {confirmOpen && (
+        <Modal title={`Lock in hole ${hole}?`} onClose={() => setConfirmOpen(false)}>
+          <ul className="space-y-2">
+            {undecided.map((p) => {
+              const c = cellOf(p)!;
+              const keep = selections[p.id];
+              return (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between rounded-lg border-2 border-line p-2.5"
+                >
+                  <span className="font-bold">
+                    {p.name}: {c.gross}
+                    <span className="ml-1 text-sm font-normal text-faint">
+                      net {(c.gross ?? 0) - (p.strokes[hole] ?? 0)}
+                    </span>
+                  </span>
+                  <span
+                    className={`chip ${
+                      keep ? "bg-felt text-cream" : "bg-ink/15 text-ink"
+                    }`}
+                  >
+                    {keep ? "KEEP" : "SKIP"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {mine.players.some((p) => !cellOf(p)) && policy === "locked" && (
+            <p className="mt-3 rounded-lg border-2 border-gold bg-gold/15 p-2 text-sm font-bold">
+              ⚠ Not every player has a score on this hole — once locked, the
+              hole closes and missing scores can&apos;t be added.
+            </p>
+          )}
+          <p className="mt-3 text-center text-sm">
+            You&apos;ll be at <b>{wouldKeep}/{target}</b> kept.{" "}
+            {policy === "locked"
+              ? "This is final — no take-backs."
+              : "Changing it later alerts the other team."}
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              className="btn btn-paper h-12 flex-1"
+              onClick={() => setConfirmOpen(false)}
+            >
+              Wait
+            </button>
+            <button
+              className="btn btn-felt h-12 flex-1"
+              disabled={busy}
+              onClick={lockIn}
+            >
+              Lock it in
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {changeReq && (
+        <Modal title="Change a locked decision?" onClose={() => setChangeReq(null)}>
+          <p className="text-sm">
+            Flip <b>{changeReq.player.name}</b>&apos;s hole {hole} ({changeReq.cell.gross})
+            from <b>{changeReq.cell.kept ? "KEEP to SKIP" : "SKIP to KEEP"}</b>?
+          </p>
+          <p className="mt-2 rounded-lg border-2 border-danger/40 bg-danger/10 p-2 text-sm font-bold text-danger">
+            ⚠ The other team will see an alert about this change.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              className="btn btn-paper h-12 flex-1"
+              onClick={() => setChangeReq(null)}
+            >
+              Never mind
+            </button>
+            <button
+              className="btn h-12 flex-1 bg-danger text-white"
+              disabled={busy}
+              onClick={async () => {
+                const ok = await run(`${base}/decide`, {
+                  hole,
+                  decisions: [
+                    {
+                      playerId: changeReq.player.id,
+                      keep: !changeReq.cell.kept,
+                    },
+                  ],
+                });
+                if (ok) setChangeReq(null);
+              }}
+            >
+              Change it
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

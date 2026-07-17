@@ -13,7 +13,12 @@ import { fmtToPar, type GameState } from "@/lib/engine";
 type Tab = "hole" | "card" | "game";
 
 function firstOpenHole(state: GameState): number {
-  for (let h = 1; h <= 18; h++) {
+  if (state.mine.pendingHole) return state.mine.pendingHole;
+  const start =
+    state.game.settings.keepPolicy === "locked"
+      ? state.mine.decidedThru + 1
+      : 1;
+  for (let h = Math.max(1, Math.min(start, 18)); h <= 18; h++) {
     for (const p of state.mine.players) {
       if (!state.mine.cells[p.id]?.[h]) return h;
     }
@@ -171,6 +176,22 @@ export default function GamePage() {
     },
     [refresh, notify]
   );
+
+  // Toast when the OTHER team changes a locked decision/score.
+  const lastOppAlert = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!state) return;
+    const latest = state.alerts.find((a) => a.team !== state.viewer.team);
+    const key = latest ? `${latest.at}|${latest.message}` : null;
+    if (lastOppAlert.current === undefined) {
+      lastOppAlert.current = key; // don't replay history on first load
+      return;
+    }
+    if (key && key !== lastOppAlert.current) {
+      lastOppAlert.current = key;
+      notify(`⚠ ${latest!.message}`);
+    }
+  }, [state, notify]);
 
   const doPeek = async () => {
     try {
