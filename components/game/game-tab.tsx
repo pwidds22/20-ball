@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/client";
+import { api } from "@/lib/client";
 import { CourseEditor, SettingsEditor } from "@/components/setup";
 import { Modal } from "@/components/ui";
 import { StrokeStrip } from "./stroke-strip";
@@ -145,17 +145,17 @@ export function GameTab({
   state,
   refresh,
   onPeek,
+  onFinish,
   notify,
 }: {
   state: GameState;
   refresh: () => Promise<void>;
   onPeek: () => void;
+  onFinish: () => void;
   notify: (msg: string) => void;
 }) {
   const { game, mine, opp, viewer } = state;
   const [editOpen, setEditOpen] = useState(false);
-  const [finishOpen, setFinishOpen] = useState(false);
-  const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const active = game.status === "active";
 
@@ -176,24 +176,6 @@ export function GameTab({
     }
     await navigator.clipboard.writeText(text);
     notify("Invite copied to clipboard");
-  };
-
-  const finish = async (force: boolean) => {
-    setBusy(true);
-    try {
-      await api(`/api/games/${game.code}/finalize`, { body: { force } });
-      await refresh();
-      setFinishOpen(false);
-      setWarnings([]);
-    } catch (e) {
-      if (e instanceof ApiError && Array.isArray(e.data.warnings)) {
-        setWarnings(e.data.warnings as string[]);
-      } else {
-        notify(e instanceof Error ? e.message : "Could not finish.");
-      }
-    } finally {
-      setBusy(false);
-    }
   };
 
   const undoFinish = async () => {
@@ -341,10 +323,7 @@ export function GameTab({
       {active ? (
         <button
           className="btn btn-felt h-14 w-full text-base"
-          onClick={() => {
-            setWarnings([]);
-            setFinishOpen(true);
-          }}
+          onClick={onFinish}
         >
           🏁 Finish round — reveal both cards
         </button>
@@ -372,39 +351,6 @@ export function GameTab({
         />
       )}
 
-      {finishOpen && (
-        <Modal title="Finish the round?" onClose={() => setFinishOpen(false)}>
-          <p className="text-sm">
-            Both cards flip face-up and the winner is called. You can undo this
-            if someone fat-fingers it.
-          </p>
-          {warnings.length > 0 && (
-            <div className="mt-3 rounded-lg border-2 border-gold bg-gold/15 p-3 text-sm">
-              <p className="font-bold">Hold on:</p>
-              <ul className="list-inside list-disc">
-                {warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="mt-4 flex gap-2">
-            <button
-              className="btn btn-paper h-12 flex-1"
-              onClick={() => setFinishOpen(false)}
-            >
-              Not yet
-            </button>
-            <button
-              className="btn btn-felt h-12 flex-1"
-              disabled={busy}
-              onClick={() => finish(warnings.length > 0)}
-            >
-              {warnings.length > 0 ? "Finish anyway" : "Finish"}
-            </button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

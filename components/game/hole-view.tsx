@@ -12,7 +12,6 @@ import {
 type Mutate = (path: string, body: unknown) => Promise<boolean>;
 
 function ScoreGrid({
-  par,
   hasCell,
   onPick,
   onPickup,
@@ -20,7 +19,6 @@ function ScoreGrid({
   onCancel,
   disabled,
 }: {
-  par: number;
   hasCell: boolean;
   onPick: (gross: number) => void;
   onPickup: () => void;
@@ -36,9 +34,7 @@ function ScoreGrid({
             key={n}
             disabled={disabled}
             onClick={() => onPick(n)}
-            className={`btn h-11 text-lg tabular-nums ${
-              n === par ? "btn-felt" : "btn-paper"
-            }`}
+            className="btn btn-paper h-11 text-lg tabular-nums"
           >
             {n}
           </button>
@@ -176,7 +172,6 @@ function PlayerPanel({
 
       {showGrid ? (
         <ScoreGrid
-          par={par}
           hasCell={!!cell}
           disabled={busy}
           onPick={async (g) => {
@@ -311,11 +306,13 @@ export function HoleView({
   hole,
   setHole,
   mutate,
+  onFinish,
 }: {
   state: GameState;
   hole: number;
   setHole: (h: number) => void;
   mutate: Mutate;
+  onFinish: () => void;
 }) {
   const { game, mine } = state;
   const info = game.holes[hole - 1];
@@ -515,6 +512,15 @@ export function HoleView({
           onClick={() => setHole(hole + 1)}
         >
           Next hole →
+        </button>
+      )}
+
+      {active && mine.decidedThru === 18 && mine.pendingHole === null && (
+        <button
+          className="btn btn-gold h-14 w-full text-base"
+          onClick={onFinish}
+        >
+          🏁 That&apos;s 18 — finish &amp; reveal the cards
         </button>
       )}
 

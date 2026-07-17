@@ -8,6 +8,7 @@ import { Modal, Spinner } from "@/components/ui";
 import { HoleView } from "@/components/game/hole-view";
 import { CardView } from "@/components/game/card-view";
 import { GameTab } from "@/components/game/game-tab";
+import { FinishModal } from "@/components/game/finish-modal";
 import { fmtToPar, type GameState } from "@/lib/engine";
 
 type Tab = "hole" | "card" | "game";
@@ -134,6 +135,7 @@ export default function GamePage() {
   const [hole, setHole] = useState(1);
   const [notice, setNotice] = useState<string | null>(null);
   const [peekConfirm, setPeekConfirm] = useState(false);
+  const [finishOpen, setFinishOpen] = useState(false);
   const [peekResult, setPeekResult] = useState<{
     thru: number;
     keptCount: number;
@@ -263,6 +265,20 @@ export default function GamePage() {
         </div>
       )}
 
+      {state.game.status === "active" &&
+        state.mine.decidedThru === 18 &&
+        state.mine.pendingHole === null && (
+          <div className="flex items-center justify-between gap-2 bg-felt px-3 py-2 text-cream">
+            <span className="text-sm font-bold">All 18 in the book 🏁</span>
+            <button
+              className="btn btn-gold h-9 px-4 text-sm"
+              onClick={() => setFinishOpen(true)}
+            >
+              Finish round
+            </button>
+          </div>
+        )}
+
       {notice && (
         <div className="fixed left-1/2 top-3 z-50 w-[92%] max-w-md -translate-x-1/2 rounded-xl border-2 border-danger bg-paper p-3 text-center text-sm font-bold text-danger shadow-xl">
           {notice}
@@ -271,7 +287,13 @@ export default function GamePage() {
 
       <main>
         {tab === "hole" && (
-          <HoleView state={state} hole={hole} setHole={setHole} mutate={mutate} />
+          <HoleView
+            state={state}
+            hole={hole}
+            setHole={setHole}
+            mutate={mutate}
+            onFinish={() => setFinishOpen(true)}
+          />
         )}
         {tab === "card" && <CardView state={state} />}
         {tab === "game" && (
@@ -279,6 +301,7 @@ export default function GamePage() {
             state={state}
             refresh={refresh}
             onPeek={() => setPeekConfirm(true)}
+            onFinish={() => setFinishOpen(true)}
             notify={notify}
           />
         )}
@@ -306,6 +329,15 @@ export default function GamePage() {
           ))}
         </div>
       </nav>
+
+      {finishOpen && (
+        <FinishModal
+          code={code}
+          onClose={() => setFinishOpen(false)}
+          refresh={refresh}
+          notify={notify}
+        />
+      )}
 
       {peekConfirm && (
         <Modal title="Use a peek?" onClose={() => setPeekConfirm(false)}>
