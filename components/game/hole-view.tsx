@@ -30,8 +30,8 @@ function ScoreGrid({
 }) {
   return (
     <div className="rise">
-      <div className="grid grid-cols-6 gap-1.5">
-        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+      <div className="grid grid-cols-5 gap-1.5">
+        {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
           <button
             key={n}
             disabled={disabled}

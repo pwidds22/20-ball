@@ -206,6 +206,17 @@ const E = (
   assert.strictEqual(s[8], 2, "SI 2 (hole 8) doubles");
   assert.strictEqual(s[3], 0, "par 3s get nothing by default");
   assert.strictEqual(s[7], 0, "hole 7 is a par 3 despite SI 6");
+
+  // 42 vs 14 low man = 28 strokes over 13 eligible holes -> triple wrap:
+  // 2 everywhere eligible, 3 on the two hardest (SI 1 and 2)
+  const s42 = strokesForHandicap(42, 14, OLD_BRIDGE_HOLES, S);
+  assert.strictEqual(s42.reduce((a, b) => a + b, 0), 28);
+  assert.strictEqual(s42[16], 3, "SI 1 (hole 16) gets 3");
+  assert.strictEqual(s42[8], 3, "SI 2 (hole 8) gets 3");
+  assert.strictEqual(Math.max(...s42), 3);
+  assert.strictEqual(s42.filter((n) => n === 3).length, 2);
+  assert.strictEqual(s42.filter((n) => n === 2).length, 11);
+  for (const h of [3, 7, 9, 11, 15]) assert.strictEqual(s42[h], 0, "no par-3 strokes");
 }
 
 // ── validation + legacy settings mapping ──
