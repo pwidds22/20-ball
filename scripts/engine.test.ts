@@ -4,6 +4,7 @@
 import assert from "node:assert";
 import {
   DEFAULT_SETTINGS,
+  OLD_BRIDGE_HOLES,
   STANDARD_HOLES,
   buildTeamView,
   keptSummaryThru,
@@ -188,6 +189,23 @@ const E = (
   assert.strictEqual(revealCheckpoint(3, 2, 9), 0);
   assert.strictEqual(revealCheckpoint(0, 18, 18), 0);
   assert.strictEqual(revealCheckpoint(9, 18, 18), 18);
+}
+
+// ── Old Bridge preset: valid card, par 71, five par 3s, 13 eligible holes ──
+{
+  assert.strictEqual(validateHoles(OLD_BRIDGE_HOLES), null);
+  assert.strictEqual(
+    OLD_BRIDGE_HOLES.reduce((a, h) => a + h.par, 0),
+    71
+  );
+  assert.strictEqual(OLD_BRIDGE_HOLES.filter((h) => h.par === 3).length, 5);
+  // 25 vs 10 low man = 15 strokes across 13 eligible holes -> two doubles
+  const s = strokesForHandicap(25, 10, OLD_BRIDGE_HOLES, S);
+  assert.strictEqual(s.reduce((a, b) => a + b, 0), 15);
+  assert.strictEqual(s[16], 2, "SI 1 (hole 16) doubles");
+  assert.strictEqual(s[8], 2, "SI 2 (hole 8) doubles");
+  assert.strictEqual(s[3], 0, "par 3s get nothing by default");
+  assert.strictEqual(s[7], 0, "hole 7 is a par 3 despite SI 6");
 }
 
 // ── validation + legacy settings mapping ──

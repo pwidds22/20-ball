@@ -316,6 +316,33 @@ export const STANDARD_HOLES: HoleInfo[] = [
   { hole: 18, par: 5, si: 14 },
 ];
 
+// Old Bridge Golf Club, Matawan NJ (obnjgolf.com) — par 71, five par 3s.
+export const OLD_BRIDGE_HOLES: HoleInfo[] = [
+  { hole: 1, par: 4, si: 8 },
+  { hole: 2, par: 4, si: 14 },
+  { hole: 3, par: 3, si: 18 },
+  { hole: 4, par: 5, si: 16 },
+  { hole: 5, par: 4, si: 4 },
+  { hole: 6, par: 5, si: 12 },
+  { hole: 7, par: 3, si: 6 },
+  { hole: 8, par: 4, si: 2 },
+  { hole: 9, par: 3, si: 10 },
+  { hole: 10, par: 5, si: 17 },
+  { hole: 11, par: 3, si: 9 },
+  { hole: 12, par: 4, si: 3 },
+  { hole: 13, par: 4, si: 15 },
+  { hole: 14, par: 5, si: 11 },
+  { hole: 15, par: 3, si: 13 },
+  { hole: 16, par: 4, si: 1 },
+  { hole: 17, par: 4, si: 7 },
+  { hole: 18, par: 4, si: 5 },
+];
+
+export const COURSE_PRESETS: { name: string; holes: HoleInfo[] }[] = [
+  { name: "Old Bridge GC (par 71)", holes: OLD_BRIDGE_HOLES },
+  { name: "Standard par 72", holes: STANDARD_HOLES },
+];
+
 export function validateHoles(holes: unknown): string | null {
   if (!Array.isArray(holes) || holes.length !== 18)
     return "Course must have exactly 18 holes.";

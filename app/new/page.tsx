@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { CourseEditor, SettingsEditor } from "@/components/setup";
 import {
+  COURSE_PRESETS,
   DEFAULT_SETTINGS,
-  STANDARD_HOLES,
   validateHoles,
   type HoleInfo,
   type Settings,
@@ -26,8 +26,9 @@ export default function NewGamePage() {
   ]);
   const [myIndex, setMyIndex] = useState(0);
   const [holes, setHoles] = useState<HoleInfo[]>(
-    STANDARD_HOLES.map((h) => ({ ...h }))
+    COURSE_PRESETS[0].holes.map((h) => ({ ...h }))
   );
+  const [preset, setPreset] = useState(COURSE_PRESETS[0].name);
   const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -134,7 +135,37 @@ export default function NewGamePage() {
 
         <section className="card rise p-4">
           <h2 className="mb-2 font-display text-lg font-bold">Course card</h2>
-          <CourseEditor holes={holes} onChange={setHoles} />
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {COURSE_PRESETS.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => {
+                  setHoles(p.holes.map((h) => ({ ...h })));
+                  setPreset(p.name);
+                }}
+                className={`chip h-8 border-2 px-3 ${
+                  preset === p.name
+                    ? "border-felt bg-felt text-cream"
+                    : "border-ink/20 bg-paper text-faint"
+                }`}
+              >
+                {p.name}
+              </button>
+            ))}
+            {preset === "custom" && (
+              <span className="chip h-8 border-2 border-gold bg-gold/20 px-3">
+                custom card
+              </span>
+            )}
+          </div>
+          <CourseEditor
+            holes={holes}
+            onChange={(h) => {
+              setHoles(h);
+              setPreset("custom");
+            }}
+          />
         </section>
 
         <section className="card rise p-4">
