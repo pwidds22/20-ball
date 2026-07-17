@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { sql } from "./db";
-import { getSession, type Session } from "./auth";
+import { clearSession, getSession, type Session } from "./auth";
 import {
   type Entry,
   type GameState,
@@ -50,6 +50,14 @@ export function parseJsonb<T>(value: unknown): T {
 export async function requireSession(): Promise<Session | NextResponse> {
   const session = await getSession();
   if (!session) return jsonError(401, "You need to sign in first.");
+  // A signed cookie can outlive its user row (e.g. a database reset) —
+  // treat that as signed-out instead of letting inserts hit FK violations.
+  const rows = await sql`
+    select 1 from twentyball.users where id = ${session.userId}`;
+  if (rows.length === 0) {
+    await clearSession();
+    return jsonError(401, "Your account is gone (database was reset) — sign up again, takes 10 seconds.");
+  }
   return session;
 }
 
