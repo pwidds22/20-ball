@@ -327,20 +327,34 @@ export function GameTab({
         </button>
       )}
 
-      {active ? (
-        <button
-          className="btn btn-felt h-14 w-full text-base"
-          onClick={onFinish}
-        >
-          🏁 Finish round — reveal both cards
-        </button>
-      ) : (
+      {state.game.status === "final" ? (
         <button
           className="btn btn-paper h-12 w-full"
           onClick={undoFinish}
           disabled={busy}
         >
           Reopen round (undo finish)
+        </button>
+      ) : state.myTeamDone ? (
+        <div className="card bg-felt/10 p-4 text-center">
+          <p className="font-bold">✓ Your card is locked in</p>
+          <p className="mb-3 text-sm text-faint">
+            Waiting on the other team to finish before the full reveal.
+          </p>
+          <button
+            className="btn btn-paper h-11 w-full"
+            onClick={undoFinish}
+            disabled={busy}
+          >
+            Reopen our card
+          </button>
+        </div>
+      ) : (
+        <button
+          className="btn btn-felt h-14 w-full text-base"
+          onClick={onFinish}
+        >
+          🏁 Finish our card
         </button>
       )}
 

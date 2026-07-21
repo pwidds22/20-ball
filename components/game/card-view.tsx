@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import {
   fmtToPar,
+  fmtToParFraction,
   fmtUsed,
   playerRoundTotals,
   type GameState,
@@ -246,38 +247,29 @@ function PlayerRounds({
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-xs uppercase text-faint">
-            <th className="border-b-2 border-line p-2 text-left font-bold">
+          <tr className="text-[11px] uppercase text-faint">
+            <th className="border-b-2 border-line p-1.5 text-left font-bold">
               Player
             </th>
-            <th className="border-b-2 border-line p-2 font-bold">Gross</th>
-            <th className="border-b-2 border-line p-2 font-bold">Net</th>
-            <th className="border-b-2 border-line p-2 font-bold">Used</th>
+            <th className="border-b-2 border-line p-1.5 font-bold">Gross</th>
+            <th className="border-b-2 border-line p-1.5 font-bold">Net</th>
+            <th className="border-b-2 border-line p-1.5 font-bold">Used</th>
+            <th className="border-b-2 border-line p-1.5 font-bold">To par</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.player.id} className="border-b border-line last:border-0">
-              <td className="p-2 text-left">
+              <td className="p-1.5 text-left">
                 <span className="font-display font-bold">{r.player.name}</span>
                 <span className="ml-1.5 text-xs text-faint">
                   T{r.team} · {r.player.handicap}
                 </span>
               </td>
-              <td className="p-2 text-center tabular-nums">
-                {r.holesIn === 0 ? (
-                  "—"
-                ) : (
-                  <>
-                    <b>{r.gross}</b>
-                    {r.holesIn < 18 ? "*" : ""}{" "}
-                    <span className="text-xs text-faint">
-                      ({fmtToPar(r.gross - r.parSum)})
-                    </span>
-                  </>
-                )}
+              <td className="p-1.5 text-center font-bold tabular-nums">
+                {r.holesIn === 0 ? "—" : `${r.gross}${r.holesIn < 18 ? "*" : ""}`}
               </td>
-              <td className="p-2 text-center tabular-nums">
+              <td className="p-1.5 text-center tabular-nums">
                 {r.holesIn === 0 ? (
                   "—"
                 ) : (
@@ -288,24 +280,32 @@ function PlayerRounds({
                         r.net - r.parSum < 0 ? "text-under" : "text-faint"
                       }`}
                     >
-                      ({fmtToPar(r.net - r.parSum)})
+                      {fmtToPar(r.net - r.parSum)}
                     </span>
                   </>
                 )}
               </td>
-              <td className="p-2 text-center font-bold tabular-nums">
+              <td className="p-1.5 text-center font-bold tabular-nums">
                 {fmtUsed(r.used)}
+              </td>
+              <td
+                className={`p-1.5 text-center font-bold tabular-nums ${
+                  r.keptToPar < -0.001 ? "text-under" : ""
+                }`}
+              >
+                {fmtToParFraction(r.keptToPar)}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="px-3 py-2 text-[11px] text-faint">
-        Used = kept scores credited to each golfer
-        {anySplit ? " — a tie the team could have kept either way splits ½ and ½" : ""}
-        {anyShort
-          ? ". * = picked up or skipped some holes; totals cover finished holes"
+        <b>Used</b> = how many kept scores each golfer got credit for.{" "}
+        <b>To par</b> = what those kept scores added to the team.
+        {anySplit
+          ? " Tied scores the team could keep either way split the credit (½, ⅔ …)."
           : ""}
+        {anyShort ? " * = didn't finish all 18." : ""}
       </p>
     </div>
   );
@@ -336,6 +336,20 @@ export function CardView({ state }: { state: GameState }) {
 
   return (
     <div className="space-y-4 p-3">
+      {state.myTeamDone && (
+        <>
+          <div className="card bg-felt/10 p-3 text-center">
+            <p className="font-display text-lg font-bold">
+              ✓ Your card is locked in
+            </p>
+            <p className="text-sm text-faint">
+              Here&apos;s your recap. The other team&apos;s scores stay hidden
+              until they finish too.
+            </p>
+          </div>
+          <PlayerRounds teams={[mine]} holes={game.holes} />
+        </>
+      )}
       <TeamTable
         view={mine}
         holes={game.holes}
@@ -358,8 +372,11 @@ export function CardView({ state }: { state: GameState }) {
           </p>
         )}
         <p className="mt-2 text-xs font-bold uppercase tracking-widest text-faint">
-          they&apos;ve played {opp.progress} of 18
-          {opp.startHole !== 1 && ` (starting hole ${opp.startHole})`}
+          {state.oppTeamDone
+            ? "they've finished — reveal when you finish too"
+            : `they've played ${opp.progress} of 18${
+                opp.startHole !== 1 ? ` (starting hole ${opp.startHole})` : ""
+              }`}
         </p>
         <div className="mt-3 border-t border-line pt-2 text-left">
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-faint">

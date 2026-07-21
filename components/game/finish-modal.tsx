@@ -38,9 +38,11 @@ export function FinishModal({
   };
 
   return (
-    <Modal title="Finish the round?" onClose={onClose}>
+    <Modal title="Finish for your team?" onClose={onClose}>
       <p className="text-sm">
-        Both cards flip face-up and the winner is called. You can undo this
+        This locks in <b>your team&apos;s</b> card and shows your recap. The
+        other team&apos;s scores stay hidden until they finish too — only then
+        do both cards reveal and the winner is called. You can reopen your card
         from the Game tab if someone fat-fingers it.
       </p>
       {warnings.length > 0 && (

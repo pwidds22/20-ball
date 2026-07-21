@@ -31,6 +31,8 @@ export type GameBundle = {
     holes: HoleInfo[];
     created_by: string;
     created_at: Date;
+    team1_done: boolean;
+    team2_done: boolean;
   };
   players: PlayerInfo[]; // strokes populated
   members: { user_id: string; team: number }[];
@@ -65,7 +67,8 @@ export async function requireSession(): Promise<Session | NextResponse> {
 
 export async function loadGameByCode(code: string): Promise<GameBundle | null> {
   const games = await sql`
-    select id, code, name, status, settings, holes, created_by, created_at
+    select id, code, name, status, settings, holes, created_by, created_at,
+           team1_done, team2_done
     from twentyball.games where code = ${code.toUpperCase()}`;
   if (games.length === 0) return null;
   const game = games[0] as unknown as GameBundle["game"];
@@ -175,6 +178,11 @@ export function startHoleOf(bundle: GameBundle, team: number) {
   return bundle.game.settings.startHoles[team - 1] ?? 1;
 }
 
+/** Has this team locked in its final card? */
+export function teamDone(bundle: GameBundle, team: number) {
+  return team === 1 ? bundle.game.team1_done : bundle.game.team2_done;
+}
+
 /** Highest play-order index (0-17) with a locked-in decision, -1 if none. */
 export function teamDecidedThruOrder(bundle: GameBundle, team: number) {
   const start = startHoleOf(bundle, team);
@@ -280,6 +288,8 @@ export function buildState(bundle: GameBundle, session: Session): GameState {
           at: new Date(p.created_at).toISOString(),
         })),
     },
+    myTeamDone: teamDone(bundle, myTeam),
+    oppTeamDone: teamDone(bundle, oppTeam),
     alerts: bundle.alerts.map((a) => ({
       team: a.team,
       message: a.message,

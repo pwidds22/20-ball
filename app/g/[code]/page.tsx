@@ -254,19 +254,26 @@ export default function GamePage() {
         </div>
       )}
 
-      {state.game.status === "active" && state.mine.skipsLeft === 0 && (
-        <div className="bg-danger px-3 py-2 text-center text-sm font-bold text-white">
-          Out of skips — every remaining score must be kept.
-        </div>
-      )}
-      {state.game.status === "active" && state.mine.skipsLeft < 0 && (
-        <div className="bg-danger px-3 py-2 text-center text-sm font-bold text-white">
-          You can no longer reach {state.game.settings.keepTarget} keeps — max
-          possible is {state.mine.potential}.
-        </div>
-      )}
+      {!state.myTeamDone &&
+        !state.mine.roundComplete &&
+        state.game.status === "active" &&
+        state.mine.skipsLeft === 0 && (
+          <div className="bg-danger px-3 py-2 text-center text-sm font-bold text-white">
+            Out of skips — every remaining score must be kept.
+          </div>
+        )}
+      {!state.myTeamDone &&
+        !state.mine.roundComplete &&
+        state.game.status === "active" &&
+        state.mine.skipsLeft < 0 && (
+          <div className="bg-danger px-3 py-2 text-center text-sm font-bold text-white">
+            You can no longer reach {state.game.settings.keepTarget} keeps — max
+            possible is {state.mine.potential}.
+          </div>
+        )}
 
       {state.game.status === "active" &&
+        !state.myTeamDone &&
         state.mine.roundComplete && (
           <div className="flex items-center justify-between gap-2 bg-felt px-3 py-2 text-cream">
             <span className="text-sm font-bold">All 18 in the book 🏁</span>
@@ -274,10 +281,27 @@ export default function GamePage() {
               className="btn btn-gold h-9 px-4 text-sm"
               onClick={() => setFinishOpen(true)}
             >
-              Finish round
+              Finish our card
             </button>
           </div>
         )}
+
+      {state.game.status === "active" && state.myTeamDone && (
+        <div className="flex items-center justify-between gap-2 bg-felt px-3 py-2 text-cream">
+          <span className="text-sm font-bold">
+            ✓ Your card is in — waiting on the other team
+          </span>
+          <button
+            className="btn btn-paper h-9 shrink-0 px-3 text-sm"
+            onClick={async () => {
+              await api(`/api/games/${code}/finalize`, { body: { undo: true } });
+              await refresh();
+            }}
+          >
+            Reopen
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div className="fixed left-1/2 top-3 z-50 w-[92%] max-w-md -translate-x-1/2 rounded-xl border-2 border-danger bg-paper p-3 text-center text-sm font-bold text-danger shadow-xl">

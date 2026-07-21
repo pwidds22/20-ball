@@ -138,6 +138,10 @@ export type GameState = {
   viewer: { userId: string; username: string; team: number; isCreator: boolean };
   mine: TeamView;
   opp: OppView;
+  /** This viewer's team has locked in its card (recap shown, opp still hidden). */
+  myTeamDone: boolean;
+  /** The other team has finished too (both cards about to reveal). */
+  oppTeamDone: boolean;
   /** Change alerts (both teams'), newest first. */
   alerts: AlertRecord[];
   /** Populated once status === "final": full cards for both teams. */
@@ -327,6 +331,9 @@ export type PlayerRoundRow = {
   parSum: number;
   /** Keep credit: 1 per kept score, split evenly when teammates tied its net. */
   used: number;
+  /** To-par this player's kept scores added to the team (splits count as
+   *  fractions). 6 kept pars = 0; 2 birdies + 4 pars = -2; half a birdie = -0.5. */
+  keptToPar: number;
 };
 
 export function playerRoundTotals(
@@ -355,6 +362,7 @@ export function playerRoundTotals(
       holesIn,
       parSum,
       used: 0,
+      keptToPar: 0,
     });
   }
 
@@ -374,10 +382,15 @@ export function playerRoundTotals(
       if (c.kept) g.kept++;
       groups.set(net, g);
     }
-    for (const g of groups.values()) {
+    const par = holes[h - 1].par;
+    for (const [net, g] of groups) {
       if (g.kept === 0) continue;
       const share = g.kept / g.members.length;
-      for (const p of g.members) rows.get(p.id)!.used += share;
+      for (const p of g.members) {
+        const row = rows.get(p.id)!;
+        row.used += share;
+        row.keptToPar += share * (net - par);
+      }
     }
   }
 
@@ -413,6 +426,12 @@ export function fmtUsed(n: number): string {
 export function fmtToPar(n: number): string {
   if (n === 0) return "E";
   return n > 0 ? `+${n}` : `${n}`;
+}
+
+/** Signed to-par that may carry a fraction: E, -1, +2½, -⅔. */
+export function fmtToParFraction(n: number): string {
+  if (Math.abs(n) < 0.001) return "E";
+  return (n < 0 ? "-" : "+") + fmtUsed(Math.abs(n));
 }
 
 export function netLabel(netToPar: number): string {

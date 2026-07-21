@@ -407,6 +407,8 @@ export function HoleView({
     if (ok) {
       setConfirmOpen(false);
       setSelections({});
+      // Jump to the next hole in play order so scoring flows hole to hole.
+      if (orderPos < 17) setHole(order[orderPos + 1]);
     }
   };
 
@@ -463,8 +465,7 @@ export function HoleView({
               key={p.id}
               className={s > 0 ? "font-bold text-felt" : "text-faint"}
             >
-              {p.name}{" "}
-              {s > 0 ? "●".repeat(Math.min(s, 3)) + (s > 1 ? ` ${s}` : "") : "–"}
+              {p.name} {s > 0 ? "●".repeat(s) : "–"}
             </span>
           );
         })}
@@ -547,12 +548,12 @@ export function HoleView({
         </button>
       )}
 
-      {active && mine.roundComplete && (
+      {active && mine.roundComplete && !state.myTeamDone && (
         <button
           className="btn btn-gold h-14 w-full text-base"
           onClick={onFinish}
         >
-          🏁 That&apos;s 18 — finish &amp; reveal the cards
+          🏁 That&apos;s 18 — finish our card
         </button>
       )}
 

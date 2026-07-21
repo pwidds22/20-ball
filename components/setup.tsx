@@ -7,57 +7,40 @@ import { useState } from "react";
 import { validateHoles, type HoleInfo, type Settings } from "@/lib/engine";
 import { Stepper, Toggle } from "./ui";
 
-/** Read-only mini scorecard: par + hole handicap per hole, front/back split. */
+/** Read-only mini scorecard: par + hole handicap per hole, front/back split.
+ *  A CSS grid keeps every hole column equal width and perfectly aligned. */
 function MiniCard({ holes }: { holes: HoleInfo[] }) {
-  const cell = "border border-line px-0 py-0.5 text-center tabular-nums";
-  const labelCell = `${cell} px-1.5 text-left font-bold`;
+  const cols = {
+    gridTemplateColumns: "2.5rem repeat(9, minmax(0, 1fr)) 2rem",
+  } as const;
+  const base =
+    "border border-line py-0.5 text-center text-xs leading-5 tabular-nums";
 
   const nine = (from: number, to: number, label: string) => {
     const slice = holes.slice(from, to);
-    const sum = (key: "par") => slice.reduce((a, h) => a + h[key], 0);
+    const parSum = slice.reduce((a, h) => a + h.par, 0);
+    const cells: { key: string; text: string | number; cls: string }[] = [];
+    cells.push({ key: "l0", text: label, cls: "bg-ink/5 font-bold uppercase text-faint" });
+    slice.forEach((h) => cells.push({ key: `n${h.hole}`, text: h.hole, cls: "bg-ink/5 font-bold text-faint" }));
+    cells.push({ key: "s0", text: "Σ", cls: "bg-ink/5 font-bold text-faint" });
+    cells.push({ key: "l1", text: "Par", cls: "font-bold" });
+    slice.forEach((h) => cells.push({ key: `p${h.hole}`, text: h.par, cls: "" }));
+    cells.push({ key: "s1", text: parSum, cls: "font-bold" });
+    cells.push({ key: "l2", text: "Hdcp", cls: "font-bold text-faint" });
+    slice.forEach((h) => cells.push({ key: `h${h.hole}`, text: h.si, cls: "text-faint" }));
+    cells.push({ key: "s2", text: "", cls: "" });
     return (
-      <table className="w-full table-fixed border-collapse text-xs">
-        <colgroup>
-          <col className="w-12" />
-          {slice.map((h) => (
-            <col key={h.hole} />
-          ))}
-          <col className="w-8" />
-        </colgroup>
-        <tbody>
-          <tr className="bg-ink/5 text-faint">
-            <td className={`${labelCell} uppercase`}>{label}</td>
-            {slice.map((h) => (
-              <td key={h.hole} className={`${cell} font-bold`}>
-                {h.hole}
-              </td>
-            ))}
-            <td className={`${cell} text-faint`}>Σ</td>
-          </tr>
-          <tr>
-            <td className={labelCell}>Par</td>
-            {slice.map((h) => (
-              <td key={h.hole} className={cell}>
-                {h.par}
-              </td>
-            ))}
-            <td className={`${cell} font-bold`}>{sum("par")}</td>
-          </tr>
-          <tr className="text-faint">
-            <td className={labelCell}>Hdcp</td>
-            {slice.map((h) => (
-              <td key={h.hole} className={cell}>
-                {h.si}
-              </td>
-            ))}
-            <td className={cell} />
-          </tr>
-        </tbody>
-      </table>
+      <div className="grid" style={cols}>
+        {cells.map((c) => (
+          <div key={c.key} className={`${base} ${c.cls}`}>
+            {c.text}
+          </div>
+        ))}
+      </div>
     );
   };
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 overflow-x-auto">
       {nine(0, 9, "Out")}
       {nine(9, 18, "In")}
     </div>
@@ -88,17 +71,19 @@ export function CourseEditor({
   if (!editing && !err) {
     return (
       <div>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="font-display text-base font-bold">
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <span className="min-w-0 font-display text-base font-bold">
             {title || "Course card"}{" "}
-            <span className="text-sm font-normal text-faint">· par {parTotal}</span>
+            <span className="text-sm font-normal text-faint">
+              · par {parTotal}
+            </span>
           </span>
           <button
             type="button"
-            className="btn btn-paper h-9 px-3 text-sm"
+            className="btn btn-paper h-9 shrink-0 whitespace-nowrap px-3 text-sm"
             onClick={() => setEditing(true)}
           >
-            ✎ Edit card
+            ✎ Edit
           </button>
         </div>
         <MiniCard holes={holes} />

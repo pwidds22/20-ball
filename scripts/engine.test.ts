@@ -7,6 +7,7 @@ import {
   OLD_BRIDGE_HOLES,
   STANDARD_HOLES,
   buildTeamView,
+  fmtToParFraction,
   fmtUsed,
   keptSummaryPlayed,
   normalizeSettings,
@@ -236,6 +237,22 @@ const E = (
   assert.strictEqual(fmtUsed(2.5), "2½");
   assert.strictEqual(fmtUsed(1 + 1 / 6), "1⅙");
   assert.strictEqual(fmtUsed(3), "3");
+
+  // to-par contribution: a/b/c each ⅔ of a bogey (+⅔); d's kept par = 0
+  const kp = (id: string) => rows.find((r) => r.player.id === id)!.keptToPar;
+  assert.ok(Math.abs(kp("a") - 2 / 3) < 1e-9, "a contributes +⅔ to par");
+  assert.strictEqual(kp("d"), 0, "d's kept par contributes 0");
+  const teamToPar = rows.reduce((s, r) => s + r.keptToPar, 0);
+  assert.ok(Math.abs(teamToPar - view.toPar) < 1e-9, "contribs sum to team to-par");
+}
+
+// ── contribution formatting: 6 kept pars = E, birdies negative, halves ──
+{
+  assert.strictEqual(fmtToParFraction(0), "E");
+  assert.strictEqual(fmtToParFraction(-2), "-2");
+  assert.strictEqual(fmtToParFraction(-0.5), "-½");
+  assert.strictEqual(fmtToParFraction(2 / 3), "+⅔");
+  assert.strictEqual(fmtToParFraction(1.5), "+1½");
 }
 
 // ── validation + settings ──
