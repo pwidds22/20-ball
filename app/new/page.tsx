@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { CourseEditor, SettingsEditor } from "@/components/setup";
 import {
-  COURSE_PRESETS,
   DEFAULT_SETTINGS,
+  OLD_BRIDGE_HOLES,
   validateHoles,
   type HoleInfo,
   type Settings,
@@ -32,9 +32,9 @@ export default function NewGamePage() {
   );
   const [myIndex, setMyIndex] = useState(0);
   const [holes, setHoles] = useState<HoleInfo[]>(
-    COURSE_PRESETS[0].holes.map((h) => ({ ...h }))
+    OLD_BRIDGE_HOLES.map((h) => ({ ...h }))
   );
-  const [preset, setPreset] = useState(COURSE_PRESETS[0].name);
+  const [courseName, setCourseName] = useState("Old Bridge GC");
   const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -77,7 +77,7 @@ export default function NewGamePage() {
       if (!res.enabled) {
         setCourseResults(null);
         setCourseMsg(
-          "Course search isn't switched on yet — it needs a (free) golfcourseapi.com key. Use a preset or type the card from the scorecard for now."
+          "Course search isn't switched on right now — tap Edit card to type the scorecard in by hand."
         );
       } else {
         setCourseResults(res.courses);
@@ -206,8 +206,10 @@ export default function NewGamePage() {
           <h2 className="label mt-4">Team 2</h2>
           {players.slice(teamSize).map((_, i) => playerRow(teamSize + i))}
           <p className="mt-2 text-xs text-faint">
-            Tap <b>me</b> next to your own name — that decides which team&apos;s
-            card you run. Strokes come off the lowest handicap in the game.
+            Tap{" "}
+            <b>me</b>{" "}
+            next to your own name — that decides which team&apos;s card you run.
+            Strokes come off the lowest handicap in the game.
             {mode === "40" &&
               " Each foursome can start on its own hole — set that under House rules."}
           </p>
@@ -247,7 +249,7 @@ export default function NewGamePage() {
                   className="card block w-full p-2.5 text-left"
                   onClick={() => {
                     setHoles(c.holes.map((h) => ({ ...h })));
-                    setPreset(c.name);
+                    setCourseName(c.name);
                     setCourseResults(null);
                     setCourseMsg(`Loaded: ${c.name}`);
                   }}
@@ -260,42 +262,23 @@ export default function NewGamePage() {
               ))}
             </div>
           )}
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {COURSE_PRESETS.map((p) => (
-              <button
-                key={p.name}
-                type="button"
-                onClick={() => {
-                  setHoles(p.holes.map((h) => ({ ...h })));
-                  setPreset(p.name);
-                }}
-                className={`chip h-8 border-2 px-3 ${
-                  preset === p.name
-                    ? "border-felt bg-felt text-cream"
-                    : "border-ink/20 bg-paper text-faint"
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
-            {!COURSE_PRESETS.some((p) => p.name === preset) && (
-              <span className="chip h-8 border-2 border-gold bg-gold/20 px-3">
-                {preset === "custom" ? "custom card" : preset}
-              </span>
-            )}
-          </div>
           <CourseEditor
             holes={holes}
+            title={courseName}
             onChange={(h) => {
               setHoles(h);
-              setPreset("custom");
+              setCourseName("Custom card");
             }}
           />
         </section>
 
         <section className="card rise p-4">
           <h2 className="mb-2 font-display text-lg font-bold">House rules</h2>
-          <SettingsEditor settings={settings} onChange={setSettings} />
+          <SettingsEditor
+            settings={settings}
+            onChange={setSettings}
+            maxKeep={teamSize * 18}
+          />
         </section>
       </div>
 

@@ -431,7 +431,7 @@ export function HoleView({
             Hole {info.hole}
           </div>
           <div className="text-xs font-bold uppercase tracking-widest text-faint">
-            par {info.par} · SI {info.si}
+            par {info.par} · hdcp {info.si}
             {mine.startHole !== 1 && ` · #${orderPos + 1} of your round`}
           </div>
         </div>

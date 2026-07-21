@@ -37,7 +37,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   keepTarget: 20,
   allowPar3Strokes: false,
-  peeksPerTeam: 1,
+  peeksPerTeam: 0,
   revealEvery: 0,
   keepPolicy: "locked",
   handicapPercent: 100,
@@ -492,7 +492,7 @@ export function normalizeSettings(
   return {
     keepTarget: int(s.keepTarget, 1, 72, 20),
     allowPar3Strokes: !!s.allowPar3Strokes,
-    peeksPerTeam: int(s.peeksPerTeam, 0, 9, 1),
+    peeksPerTeam: int(s.peeksPerTeam, 0, 9, 0),
     revealEvery: [0, 3, 6, 9].includes(Number(s.revealEvery))
       ? Number(s.revealEvery)
       : 0,

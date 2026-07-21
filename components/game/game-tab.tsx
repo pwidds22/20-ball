@@ -126,11 +126,15 @@ function EditModal({
         </div>
         <div>
           <h3 className="label">Course card</h3>
-          <CourseEditor holes={holes} onChange={setHoles} />
+          <CourseEditor holes={holes} onChange={setHoles} title="Course card" />
         </div>
         <div>
           <h3 className="label">House rules</h3>
-          <SettingsEditor settings={settings} onChange={setSettings} />
+          <SettingsEditor
+            settings={settings}
+            onChange={setSettings}
+            maxKeep={mine.players.length * 18}
+          />
         </div>
         {err && <p className="text-sm font-bold text-danger">{err}</p>}
         <button className="btn btn-felt h-12 w-full" onClick={save} disabled={busy}>

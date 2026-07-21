@@ -150,7 +150,7 @@ export function TeamTable({
           <tr className="text-xs uppercase text-faint">
             <th className="border border-line p-1 font-bold">H</th>
             <th className="border border-line p-1 font-bold">Par</th>
-            <th className="border border-line p-1 font-bold">SI</th>
+            <th className="border border-line p-1 font-bold">Hdcp</th>
             {view.players.map((p) => (
               <th
                 key={p.id}
