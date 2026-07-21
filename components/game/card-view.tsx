@@ -264,8 +264,8 @@ function PlayerRounds({
             <tr key={r.player.id} className="border-b border-line last:border-0">
               <td className="p-1.5 text-left">
                 <span className="font-display font-bold">{r.player.name}</span>
-                <span className="ml-1.5 text-xs text-faint">
-                  T{r.team} · {r.player.handicap}
+                <span className="ml-1.5 whitespace-nowrap text-xs text-faint">
+                  Team {r.team} · {r.player.handicap} hcp
                 </span>
               </td>
               <td className="p-1.5 text-center font-bold tabular-nums">
