@@ -358,38 +358,54 @@ export function playerRoundTotals(
     });
   }
 
-  // Distribute keep credit hole by hole. Each kept score is worth 1, shared
-  // equally with teammates whose un-kept score tied it net — "we both made
-  // bogey, either could have been the one that counted" = half each.
+  // Distribute keep credit hole by hole. On each hole, group the team's
+  // scores by net value; a group of N players with K of them kept is fully
+  // interchangeable, so each of the N gets K/N credit. Two players tie and one
+  // is kept -> ½ each; three tie and two are kept -> ⅔ each; and so on. Credit
+  // always sums to the number of kept scores.
   for (let h = 1; h <= 18; h++) {
-    const here = view.players
-      .map((p) => ({ p, c: view.cells[p.id]?.[h] }))
-      .filter(
-        (x): x is { p: PlayerInfo; c: ScoreCell } =>
-          !!x.c && !x.c.pickup && x.c.gross != null
-      )
-      .map((x) => ({
-        p: x.p,
-        kept: x.c.kept,
-        netScore: (x.c.gross ?? 0) - (x.p.strokes[h] ?? 0),
-      }));
-    for (const k of here.filter((x) => x.kept)) {
-      const ties = here.filter((x) => !x.kept && x.netScore === k.netScore);
-      const share = 1 / (1 + ties.length);
-      rows.get(k.p.id)!.used += share;
-      for (const t of ties) rows.get(t.p.id)!.used += share;
+    const groups = new Map<number, { members: PlayerInfo[]; kept: number }>();
+    for (const p of view.players) {
+      const c = view.cells[p.id]?.[h];
+      if (!c || c.pickup || c.gross == null) continue;
+      const net = c.gross - (p.strokes[h] ?? 0);
+      const g = groups.get(net) ?? { members: [], kept: 0 };
+      g.members.push(p);
+      if (c.kept) g.kept++;
+      groups.set(net, g);
+    }
+    for (const g of groups.values()) {
+      if (g.kept === 0) continue;
+      const share = g.kept / g.members.length;
+      for (const p of g.members) rows.get(p.id)!.used += share;
     }
   }
 
   return [...rows.values()];
 }
 
+const USED_FRACTIONS: [number, string][] = [
+  [1 / 6, "⅙"],
+  [1 / 4, "¼"],
+  [1 / 3, "⅓"],
+  [1 / 2, "½"],
+  [2 / 3, "⅔"],
+  [3 / 4, "¾"],
+  [5 / 6, "⅚"],
+];
+
+/** Render keep credit as a clean mixed number (2½, ⅔, 1⅙) where it lands on a
+ *  common fraction; otherwise a one-decimal fallback. */
 export function fmtUsed(n: number): string {
-  const rounded = Math.round(n * 10) / 10;
-  if (Number.isInteger(rounded)) return String(rounded);
-  if (Math.abs(rounded % 1 - 0.5) < 0.001)
-    return `${Math.floor(rounded)}½`.replace(/^0½$/, "½");
-  return rounded.toFixed(1);
+  if (n < 0.001) return "0";
+  const whole = Math.floor(n + 1e-6);
+  const frac = n - whole;
+  if (frac < 0.02) return String(whole);
+  for (const [val, glyph] of USED_FRACTIONS) {
+    if (Math.abs(frac - val) < 0.02)
+      return whole > 0 ? `${whole}${glyph}` : glyph;
+  }
+  return (Math.round(n * 10) / 10).toFixed(1);
 }
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────

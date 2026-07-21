@@ -14,6 +14,7 @@ import {
 type Mutate = (path: string, body: unknown) => Promise<boolean>;
 
 function ScoreGrid({
+  par,
   hasCell,
   onPick,
   onPickup,
@@ -21,6 +22,7 @@ function ScoreGrid({
   onCancel,
   disabled,
 }: {
+  par: number;
   hasCell: boolean;
   onPick: (gross: number) => void;
   onPickup: () => void;
@@ -28,10 +30,12 @@ function ScoreGrid({
   onCancel: () => void;
   disabled: boolean;
 }) {
+  // Cap at double par — anything worse is a pickup (X).
+  const maxScore = par * 2;
   return (
     <div className="rise">
       <div className="grid grid-cols-5 gap-1.5">
-        {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
+        {Array.from({ length: maxScore }, (_, i) => i + 1).map((n) => (
           <button
             key={n}
             disabled={disabled}
@@ -42,6 +46,9 @@ function ScoreGrid({
           </button>
         ))}
       </div>
+      <p className="mt-1 text-center text-[11px] text-faint">
+        Double par ({maxScore}) is the max — worse than that, tap X.
+      </p>
       <div className="mt-1.5 flex gap-1.5">
         <button
           disabled={disabled}
@@ -174,6 +181,7 @@ function PlayerPanel({
 
       {showGrid ? (
         <ScoreGrid
+          par={par}
           hasCell={!!cell}
           disabled={busy}
           onPick={async (g) => {
@@ -442,6 +450,24 @@ export function HoleView({
         >
           ›
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-ink/5 px-2.5 py-1.5 text-xs">
+        <span className="font-bold uppercase tracking-wider text-faint">
+          Their strokes here:
+        </span>
+        {state.opp.players.map((p) => {
+          const s = p.strokes[hole] ?? 0;
+          return (
+            <span
+              key={p.id}
+              className={s > 0 ? "font-bold text-felt" : "text-faint"}
+            >
+              {p.name}{" "}
+              {s > 0 ? "●".repeat(Math.min(s, 3)) + (s > 1 ? ` ${s}` : "") : "–"}
+            </span>
+          );
+        })}
       </div>
 
       {blockedBy && (

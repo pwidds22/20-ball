@@ -9,46 +9,57 @@ import { Stepper, Toggle } from "./ui";
 
 /** Read-only mini scorecard: par + hole handicap per hole, front/back split. */
 function MiniCard({ holes }: { holes: HoleInfo[] }) {
+  const cell = "border border-line px-0 py-0.5 text-center tabular-nums";
+  const labelCell = `${cell} px-1.5 text-left font-bold`;
+
   const nine = (from: number, to: number, label: string) => {
     const slice = holes.slice(from, to);
-    const cell = "border border-line px-1 py-0.5 text-center tabular-nums";
+    const sum = (key: "par") => slice.reduce((a, h) => a + h[key], 0);
     return (
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-xs">
-          <tbody>
-            <tr className="text-faint">
-              <td className={`${cell} text-left font-bold uppercase`}>{label}</td>
-              {slice.map((h) => (
-                <td key={h.hole} className={`${cell} font-bold`}>
-                  {h.hole}
-                </td>
-              ))}
-            </tr>
-            <tr>
-              <td className={`${cell} text-left font-bold`}>Par</td>
-              {slice.map((h) => (
-                <td key={h.hole} className={cell}>
-                  {h.par}
-                </td>
-              ))}
-            </tr>
-            <tr className="text-faint">
-              <td className={`${cell} text-left font-bold`}>Hdcp</td>
-              {slice.map((h) => (
-                <td key={h.hole} className={cell}>
-                  {h.si}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <table className="w-full table-fixed border-collapse text-xs">
+        <colgroup>
+          <col className="w-12" />
+          {slice.map((h) => (
+            <col key={h.hole} />
+          ))}
+          <col className="w-8" />
+        </colgroup>
+        <tbody>
+          <tr className="bg-ink/5 text-faint">
+            <td className={`${labelCell} uppercase`}>{label}</td>
+            {slice.map((h) => (
+              <td key={h.hole} className={`${cell} font-bold`}>
+                {h.hole}
+              </td>
+            ))}
+            <td className={`${cell} text-faint`}>Σ</td>
+          </tr>
+          <tr>
+            <td className={labelCell}>Par</td>
+            {slice.map((h) => (
+              <td key={h.hole} className={cell}>
+                {h.par}
+              </td>
+            ))}
+            <td className={`${cell} font-bold`}>{sum("par")}</td>
+          </tr>
+          <tr className="text-faint">
+            <td className={labelCell}>Hdcp</td>
+            {slice.map((h) => (
+              <td key={h.hole} className={cell}>
+                {h.si}
+              </td>
+            ))}
+            <td className={cell} />
+          </tr>
+        </tbody>
+      </table>
     );
   };
   return (
     <div className="space-y-2">
-      {nine(0, 9, "Front")}
-      {nine(9, 18, "Back")}
+      {nine(0, 9, "Out")}
+      {nine(9, 18, "In")}
     </div>
   );
 }
@@ -178,8 +189,8 @@ export function SettingsEditor({
         label="Scores each team keeps"
         hint={
           is40
-            ? "40 Ball keeps 40 of the team's 72 scores"
-            : "20 Ball keeps 20 of the team's 36 scores"
+            ? "Each team makes 72 scores and keeps 40 (40 Ball)"
+            : "Each team makes 36 scores and keeps 20 (20 Ball)"
         }
         value={settings.keepTarget}
         min={1}
@@ -188,7 +199,7 @@ export function SettingsEditor({
       />
       <Stepper
         label="Peeks per team"
-        hint="Spend one to peek at the other team's score. 0 = no peeking."
+        hint="How many times a team can look at the other team's score"
         value={settings.peeksPerTeam}
         min={0}
         max={9}

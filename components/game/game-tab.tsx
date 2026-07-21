@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/client";
 import { CourseEditor, SettingsEditor } from "@/components/setup";
 import { Modal } from "@/components/ui";
-import { StrokeStrip } from "./stroke-strip";
+import { StrokeMap } from "./stroke-strip";
 import {
   fmtToPar,
   validateHoles,
@@ -307,19 +307,15 @@ export function GameTab({
       )}
 
       <section className="card p-4">
-        <p className="mb-2 text-sm font-bold">Strokes by hole</p>
-        {allPlayers.map((p) => (
-          <StrokeStrip
-            key={p.id}
-            name={p.name}
-            strokes={p.strokes}
-            holes={state.game.holes}
-          />
-        ))}
-        <p className="mt-1 text-[11px] text-faint">
-          green = gets a stroke (number = 2+ strokes), off the low man&apos;s
-          handicap
-        </p>
+        <p className="mb-2 text-sm font-bold">Strokes by hole — everyone</p>
+        <StrokeMap
+          players={allPlayers.map((p) => ({
+            id: p.id,
+            name: `T${p.teamNo} · ${p.name}`,
+            strokes: p.strokes,
+          }))}
+          holes={state.game.holes}
+        />
       </section>
 
       {viewer.isCreator && active && (

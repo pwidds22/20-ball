@@ -209,7 +209,8 @@ export default function NewGamePage() {
             Tap{" "}
             <b>me</b>{" "}
             next to your own name — that decides which team&apos;s card you run.
-            Strokes come off the lowest handicap in the game.
+            The lowest handicap in the game plays even; everyone else gets the
+            difference in strokes on the hardest holes.
             {mode === "40" &&
               " Each foursome can start on its own hole — set that under House rules."}
           </p>

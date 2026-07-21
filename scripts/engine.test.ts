@@ -212,6 +212,32 @@ const E = (
   assert.strictEqual(r2.find((r) => r.player.id === "b")!.used, 0.5);
 }
 
+// ── 40 Ball credit: 3 golfers tie a hole, 2 kept -> ⅔ each ──
+{
+  const players = [P("a"), P("b", { pos: 2 }), P("c", { pos: 3 }), P("d", { pos: 4 })];
+  const entries: Entry[] = [
+    // hole 1 (par 4): a, b, c all net bogey (5); a & b kept, c not. d made par, kept.
+    E("a", 1, 5, { kept: true, decided: true }),
+    E("b", 1, 5, { kept: true, decided: true }),
+    E("c", 1, 5, { decided: true }),
+    E("d", 1, 4, { kept: true, decided: true }),
+  ];
+  const view = buildTeamView(1, players, entries, holes, { ...S, keepTarget: 40 }, 0);
+  const rows = playerRoundTotals(view, holes);
+  const used = (id: string) => rows.find((r) => r.player.id === id)!.used;
+  assert.ok(Math.abs(used("a") - 2 / 3) < 1e-9, "a gets ⅔");
+  assert.ok(Math.abs(used("b") - 2 / 3) < 1e-9, "b gets ⅔");
+  assert.ok(Math.abs(used("c") - 2 / 3) < 1e-9, "c (unkept but tied) gets ⅔");
+  assert.strictEqual(used("d"), 1, "d's par kept outright = 1");
+  const total = rows.reduce((s, r) => s + r.used, 0);
+  assert.ok(Math.abs(total - 3) < 1e-9, "credit sums to 3 kept scores");
+  assert.strictEqual(fmtUsed(2 / 3), "⅔");
+  assert.strictEqual(fmtUsed(1 / 3), "⅓");
+  assert.strictEqual(fmtUsed(2.5), "2½");
+  assert.strictEqual(fmtUsed(1 + 1 / 6), "1⅙");
+  assert.strictEqual(fmtUsed(3), "3");
+}
+
 // ── validation + settings ──
 {
   assert.strictEqual(validateHoles(STANDARD_HOLES), null);

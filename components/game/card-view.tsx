@@ -9,7 +9,7 @@ import {
   type HoleInfo,
   type TeamView,
 } from "@/lib/engine";
-import { StrokeStrip } from "./stroke-strip";
+import { StrokeMap } from "./stroke-strip";
 
 /** Corner dots marking handicap strokes, scorecard-style. */
 function Pips({ n }: { n: number }) {
@@ -363,16 +363,16 @@ export function CardView({ state }: { state: GameState }) {
         </p>
         <div className="mt-3 border-t border-line pt-2 text-left">
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-faint">
-            their strokes (holes 1-18)
+            their strokes by hole
           </p>
-          {opp.players.map((p) => (
-            <StrokeStrip
-              key={p.id}
-              name={p.name}
-              strokes={p.strokes}
-              holes={game.holes}
-            />
-          ))}
+          <StrokeMap
+            players={opp.players.map((p) => ({
+              id: p.id,
+              name: p.name,
+              strokes: p.strokes,
+            }))}
+            holes={game.holes}
+          />
         </div>
       </div>
     </div>
