@@ -31,6 +31,20 @@ layer. This app is the **games-between-people layer**: less about logging every
 shot, more about making it dead simple to set up a fair match and settle it. We
 track scores and handicaps — not shot-by-shot GPS or strokes-gained analytics.
 
+## Platform direction: mobile-first, eventually mobile-only
+
+The end product is a **native mobile app** (iOS + Android). That's where golfers
+live — on the course, phone in pocket. The current Next.js **web app is a
+temporary bridge**: something to share with friends and prove the game out now,
+before the real app exists. We don't expect long-term web usage.
+
+This shapes how we build: the app is **API-first**. All rules, scoring, and the
+stroke engine run server-side behind clean API routes; the browser is a thin
+client. So the web app isn't throwaway — when we build native, it talks to the
+**same backend**, and the pure rules engine (`lib/engine.ts`, no dependencies)
+can be reused or ported directly. The hard, high-value part (the stroke +
+scoring logic) carries over intact; only the UI gets rebuilt natively.
+
 ## Core capabilities (long-term)
 
 - **Profiles + handicaps** — each player has a handicap that updates from their
@@ -59,12 +73,14 @@ track scores and handicaps — not shot-by-shot GPS or strokes-gained analytics.
 
 The MVP ships one family of formats — **20 Ball (2v2)** and **40 Ball (4v4)** —
 end to end: accounts, handicaps, per-format stroke allocation, hidden-information
-scoring, live sync, and final results. That already exercises the hardest part
-(the stroke engine + live scorecard), so it's a strong base to generalize on.
+scoring, live sync, and final results. It runs as a **web app** for now (the
+bridge described above), but already exercises the hardest part — the stroke
+engine + live scorecard — so it's a strong base to generalize on and to point a
+native client at later.
 
 ## Rough roadmap
 
-1. **Now:** 20 / 40 Ball, solid and in real use.
+1. **Now:** 20 / 40 Ball as a web app, solid and in real use with friends.
 2. **Generalize the stroke engine** so it's format-aware — it already computes
    per-hole strokes off the low handicap; extend it to match / best-ball / skins
    allocation rules.
@@ -74,3 +90,8 @@ scoring, live sync, and final results. That already exercises the hardest part
    handicaps, record head-to-head.
 5. **Round tracking** that feeds handicaps.
 6. **Rename / rebrand** from "20 Ball" to the platform name.
+7. **Build the native mobile app** (iOS + Android) against the existing API —
+   the real product. Retire the web app to a marketing / landing-page role.
+
+Keeping the codebase API-first from here on is what makes step 7 cheap: don't
+bury game logic in the browser; it belongs in the shared backend.
