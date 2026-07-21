@@ -5,6 +5,7 @@ import {
   fmtToPar,
   fmtToParFraction,
   fmtUsed,
+  optimalSelection,
   playerRoundTotals,
   type GameState,
   type HoleInfo,
@@ -311,8 +312,91 @@ function PlayerRounds({
   );
 }
 
+function OptimalCard({
+  view,
+  holes,
+  keepTarget,
+  title,
+}: {
+  view: TeamView;
+  holes: HoleInfo[];
+  keepTarget: number;
+  title: string;
+}) {
+  const opt = optimalSelection(view, holes, keepTarget);
+  const nailed = opt.leftOnTable === 0;
+  return (
+    <div className="card overflow-hidden">
+      <div className="bg-felt px-3 py-2 font-display font-bold text-cream">
+        Best-case keep — {title}
+      </div>
+      <div className="p-3">
+        <div className="flex items-center justify-around text-center">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-faint">
+              You kept
+            </p>
+            <p className="font-display text-3xl font-black tabular-nums">
+              {fmtToPar(opt.actualToPar)}
+            </p>
+          </div>
+          <div className="text-2xl text-faint">→</div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-faint">
+              Best possible
+            </p>
+            <p className="font-display text-3xl font-black tabular-nums text-felt">
+              {fmtToPar(opt.optimalToPar)}
+            </p>
+          </div>
+        </div>
+        <p
+          className={`mt-2 text-center text-sm font-bold ${
+            nailed ? "text-felt" : "text-under"
+          }`}
+        >
+          {nailed
+            ? `🎯 Perfect — you kept the best ${opt.optimalCount}!`
+            : `Left ${opt.leftOnTable} shot${
+                opt.leftOnTable === 1 ? "" : "s"
+              } on the table`}
+        </p>
+        <div className="mt-3 border-t border-line pt-2">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-faint">
+            The best {opt.optimalCount} would&apos;ve come from
+          </p>
+          <table className="w-full text-sm">
+            <tbody>
+              {opt.perPlayer
+                .slice()
+                .sort((a, b) => b.count - a.count)
+                .map((r) => (
+                  <tr
+                    key={r.player.id}
+                    className="border-b border-line last:border-0"
+                  >
+                    <td className="py-1 text-left font-display font-bold">
+                      {r.player.name}
+                    </td>
+                    <td className="py-1 text-center tabular-nums text-faint">
+                      {r.count} {r.count === 1 ? "score" : "scores"}
+                    </td>
+                    <td className="py-1 text-right font-bold tabular-nums">
+                      {fmtToPar(r.toPar)}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CardView({ state }: { state: GameState }) {
   const { game, mine, opp } = state;
+  const keepTarget = game.settings.keepTarget;
 
   if (state.final) {
     const [t1, t2] = state.final.teams;
@@ -320,6 +404,18 @@ export function CardView({ state }: { state: GameState }) {
     return (
       <div className="space-y-4 p-3">
         <PlayerRounds teams={[t1, t2]} holes={game.holes} />
+        <OptimalCard
+          view={t1}
+          holes={game.holes}
+          keepTarget={keepTarget}
+          title={`Team 1 — ${nameOf(t1)}`}
+        />
+        <OptimalCard
+          view={t2}
+          holes={game.holes}
+          keepTarget={keepTarget}
+          title={`Team 2 — ${nameOf(t2)}`}
+        />
         <TeamTable
           view={t1}
           holes={game.holes}
@@ -348,6 +444,12 @@ export function CardView({ state }: { state: GameState }) {
             </p>
           </div>
           <PlayerRounds teams={[mine]} holes={game.holes} />
+          <OptimalCard
+            view={mine}
+            holes={game.holes}
+            keepTarget={keepTarget}
+            title={`Us — ${mine.players.map((p) => p.name).join(" & ")}`}
+          />
         </>
       )}
       <TeamTable

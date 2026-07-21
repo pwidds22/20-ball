@@ -11,6 +11,7 @@ import {
   fmtUsed,
   keptSummaryPlayed,
   normalizeSettings,
+  optimalSelection,
   orderIndex,
   playOrder,
   playerRoundTotals,
@@ -244,6 +245,46 @@ const E = (
   assert.strictEqual(kp("d"), 0, "d's kept par contributes 0");
   const teamToPar = rows.reduce((s, r) => s + r.keptToPar, 0);
   assert.ok(Math.abs(teamToPar - view.toPar) < 1e-9, "contribs sum to team to-par");
+}
+
+// ── optimal keep analysis: best-N vs actual, attributed per player ──
+{
+  const players = [P("a"), P("b", { pos: 2 })];
+  const entries: Entry[] = [
+    // hole 1: a birdie(-1) kept, b par(0) skipped
+    E("a", 1, 3, { kept: true, decided: true }),
+    E("b", 1, 4, { decided: true }),
+    // hole 2: a par(0) KEPT (suboptimal), b birdie(-1) skipped
+    E("a", 2, 4, { kept: true, decided: true }),
+    E("b", 2, 3, { decided: true }),
+    // hole 3 (par 3): a par(0) skipped, b bogey(+1) skipped
+    E("a", 3, 3, { decided: true }),
+    E("b", 3, 4, { decided: true }),
+  ];
+  // keepTarget 2: they actually kept a@1 (-1) + a@2 (0) = -1.
+  const view = buildTeamView(1, players, entries, holes, { ...S, keepTarget: 2 }, 0);
+  const opt = optimalSelection(view, holes, 2);
+  assert.strictEqual(opt.actualToPar, -1, "kept a birdie + a par");
+  assert.strictEqual(opt.actualCount, 2);
+  // best 2 of {a:-1, b:0, a:0, b:-1, a:0, b:+1} = the two -1s = -2
+  assert.strictEqual(opt.optimalToPar, -2, "best two are both birdies");
+  assert.strictEqual(opt.optimalCount, 2);
+  assert.strictEqual(opt.leftOnTable, 1, "left one shot on the table");
+  // optimal uses a@1(-1) and b@2(-1): one each
+  const byId = Object.fromEntries(opt.perPlayer.map((r) => [r.player.id, r]));
+  assert.strictEqual(byId["a"].count, 1);
+  assert.strictEqual(byId["a"].toPar, -1);
+  assert.strictEqual(byId["b"].count, 1);
+  assert.strictEqual(byId["b"].toPar, -1);
+
+  // pickups excluded from the pool
+  const withX: Entry[] = [
+    E("a", 4, null, { pickup: true, decided: true }),
+    E("a", 5, 4, { kept: true, decided: true }),
+  ];
+  const v2 = buildTeamView(1, players, withX, holes, { ...S, keepTarget: 5 }, 0);
+  const opt2 = optimalSelection(v2, holes, 5);
+  assert.strictEqual(opt2.optimalCount, 1, "only one real score available");
 }
 
 // ── contribution formatting: 6 kept pars = E, birdies negative, halves ──

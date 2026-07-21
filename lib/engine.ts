@@ -409,6 +409,69 @@ const USED_FRACTIONS: [number, string][] = [
 
 /** Render keep credit as a clean mixed number (2½, ⅔, 1⅙) where it lands on a
  *  common fraction; otherwise a one-decimal fallback. */
+// ─── Optimal keep analysis (final-card "what could have been") ──────────────
+// Because a team can keep any mix (0/1/2 per hole, all from one player), the
+// best possible score is just the `keepTarget` lowest net-to-par scores it
+// made. Compare to what it actually kept, and attribute the optimal set back
+// to each player.
+
+export type OptimalRow = {
+  player: PlayerInfo;
+  count: number; // how many of this player's scores are in the optimal set
+  toPar: number; // summed net-to-par of those scores
+};
+
+export type OptimalResult = {
+  optimalToPar: number;
+  optimalCount: number; // min(keepTarget, scores available)
+  actualToPar: number;
+  actualCount: number;
+  leftOnTable: number; // actualToPar - optimalToPar (>= 0)
+  perPlayer: OptimalRow[];
+};
+
+export function optimalSelection(
+  view: TeamView,
+  holes: HoleInfo[],
+  keepTarget: number
+): OptimalResult {
+  const scores: { playerId: string; netToPar: number }[] = [];
+  let actualToPar = 0;
+  let actualCount = 0;
+  for (const p of view.players) {
+    for (let h = 1; h <= 18; h++) {
+      const c = view.cells[p.id]?.[h];
+      if (!c || c.pickup || c.gross == null) continue;
+      const netToPar = c.gross - (p.strokes[h] ?? 0) - holes[h - 1].par;
+      scores.push({ playerId: p.id, netToPar });
+      if (c.kept) {
+        actualToPar += netToPar;
+        actualCount++;
+      }
+    }
+  }
+  scores.sort((a, b) => a.netToPar - b.netToPar);
+  const chosen = scores.slice(0, keepTarget);
+  const perPlayer = new Map<string, OptimalRow>(
+    view.players.map((p) => [p.id, { player: p, count: 0, toPar: 0 }])
+  );
+  let optimalToPar = 0;
+  for (const c of chosen) {
+    optimalToPar += c.netToPar;
+    const row = perPlayer.get(c.playerId)!;
+    row.count++;
+    row.toPar += c.netToPar;
+  }
+  return {
+    optimalToPar,
+    optimalCount: chosen.length,
+    actualToPar,
+    actualCount,
+    leftOnTable: actualToPar - optimalToPar,
+    perPlayer: [...perPlayer.values()],
+  };
+}
+
 export function fmtUsed(n: number): string {
   if (n < 0.001) return "0";
   const whole = Math.floor(n + 1e-6);
