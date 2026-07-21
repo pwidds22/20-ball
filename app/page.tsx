@@ -167,9 +167,10 @@ export default function HomePage() {
         </div>
         <AuthCard onDone={load} />
         <p className="text-center text-sm text-faint">
-          2 v 2. Each team keeps exactly 20 of its 36 scores. The other team
-          can&apos;t see which ones. Skip too many holes and you&apos;ll be
-          forced to keep the blow-ups.
+          Play <b>20 Ball</b> (2 v 2, keep 20 of 36) or <b>40 Ball</b> (4 v 4,
+          keep 40 of 72). Your team picks which scores to keep — the other team
+          can&apos;t see which. Skip too many holes and you&apos;ll be forced to
+          keep the blow-ups.
         </p>
       </main>
     );

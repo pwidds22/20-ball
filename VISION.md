@@ -60,7 +60,28 @@ scoring logic) carries over intact; only the UI gets rebuilt natively.
   This is the expertise most golfers don't have and the reason to open the app.
 - **Live scorecard + results** — run the game hole by hole, see who's winning,
   record the outcome.
+- **Side-game odds** — handicap-fair terms for the little bets people actually
+  make: net birdies/eagles ("dots"), skins, closest-to-pin, long drive. Betting
+  even money on gross birdies is a bad deal for a 20 against a 5; the app should
+  either score these *net* (reusing the stroke engine) or suggest fair stakes so
+  the weaker player isn't fleeced.
 - **History / head-to-head** — your record against each friend, across formats.
+
+## Prior art / features worth borrowing
+
+Apps already in this space — study them, take what's good:
+
+- **Matchplay** (matchplaygolf.app) — "social scorecard for golf groups"; clean
+  live match/skins/bets view that updates hole by hole.
+- **LevelGolf** — matchplay & Nassau with an "odds" system as an alternative to
+  strokes-per-hole (relevant to the side-game odds idea above).
+- **Golf GameBook** — broad format support, does all the match math for you.
+- **mScorecard** — deep catalog of side games (skins, Nassau, greenies, birdies,
+  longest drive, etc.).
+- **Matchplay Stroke Calculator** — the narrow "just tell me the strokes" tool.
+
+Most have thin/no reviews, so the bar on polish + the right feature mix is
+beatable.
 
 ## What it is not (for now)
 
