@@ -287,6 +287,30 @@ const E = (
   assert.strictEqual(opt2.optimalCount, 1, "only one real score available");
 }
 
+// ── optimal with a tie AT the cutoff: split the leftover slot fairly ──
+{
+  const players = [P("a"), P("b", { pos: 2 })];
+  // a: eagle on 1 (net -2). Then three net-par scores (a@2, b@1, b@2) tie for
+  // the last of 2 slots -> ⅓ each.
+  const entries: Entry[] = [
+    E("a", 1, 2, { kept: true, decided: true }), // par 4, net -2
+    E("a", 2, 4, { decided: true }), // net 0
+    E("b", 1, 4, { decided: true }), // net 0
+    E("b", 2, 4, { kept: true, decided: true }), // net 0
+  ];
+  const view = buildTeamView(1, players, entries, holes, { ...S, keepTarget: 2 }, 0);
+  const opt = optimalSelection(view, holes, 2);
+  assert.strictEqual(opt.optimalToPar, -2, "best two = eagle + one par");
+  assert.strictEqual(opt.optimalCount, 2);
+  const byId = Object.fromEntries(opt.perPlayer.map((r) => [r.player.id, r]));
+  assert.ok(Math.abs(byId["a"].count - 4 / 3) < 1e-9, "a: 1 + ⅓ = 1⅓");
+  assert.ok(Math.abs(byId["b"].count - 2 / 3) < 1e-9, "b: ⅔");
+  assert.strictEqual(fmtUsed(byId["a"].count), "1⅓");
+  assert.strictEqual(fmtUsed(byId["b"].count), "⅔");
+  const totalCount = opt.perPlayer.reduce((s, r) => s + r.count, 0);
+  assert.ok(Math.abs(totalCount - 2) < 1e-9, "counts sum to the 2 slots");
+}
+
 // ── contribution formatting: 6 kept pars = E, birdies negative, halves ──
 {
   assert.strictEqual(fmtToParFraction(0), "E");

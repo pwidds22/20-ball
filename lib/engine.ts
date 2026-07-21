@@ -451,20 +451,36 @@ export function optimalSelection(
     }
   }
   scores.sort((a, b) => a.netToPar - b.netToPar);
-  const chosen = scores.slice(0, keepTarget);
+  const target = Math.min(keepTarget, scores.length);
   const perPlayer = new Map<string, OptimalRow>(
     view.players.map((p) => [p.id, { player: p, count: 0, toPar: 0 }])
   );
   let optimalToPar = 0;
-  for (const c of chosen) {
-    optimalToPar += c.netToPar;
-    const row = perPlayer.get(c.playerId)!;
-    row.count++;
-    row.toPar += c.netToPar;
+  if (target > 0) {
+    // Scores strictly better than the cutoff are definitely in. Scores tied AT
+    // the cutoff value compete for the leftover slots, so their credit splits
+    // evenly — same idea as the "Used" column (a boundary tie shows halves).
+    const cutoff = scores[target - 1].netToPar;
+    const below = scores.filter((s) => s.netToPar < cutoff);
+    const atCut = scores.filter((s) => s.netToPar === cutoff);
+    const slotsLeft = target - below.length;
+    const share = slotsLeft / atCut.length;
+    for (const s of below) {
+      const row = perPlayer.get(s.playerId)!;
+      row.count += 1;
+      row.toPar += s.netToPar;
+      optimalToPar += s.netToPar;
+    }
+    for (const s of atCut) {
+      const row = perPlayer.get(s.playerId)!;
+      row.count += share;
+      row.toPar += share * s.netToPar;
+    }
+    optimalToPar += slotsLeft * cutoff; // every tied score has net === cutoff
   }
   return {
     optimalToPar,
-    optimalCount: chosen.length,
+    optimalCount: target,
     actualToPar,
     actualCount,
     leftOnTable: actualToPar - optimalToPar,

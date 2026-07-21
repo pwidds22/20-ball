@@ -379,10 +379,10 @@ function OptimalCard({
                       {r.player.name}
                     </td>
                     <td className="py-1 text-center tabular-nums text-faint">
-                      {r.count} {r.count === 1 ? "score" : "scores"}
+                      {fmtUsed(r.count)} scores
                     </td>
                     <td className="py-1 text-right font-bold tabular-nums">
-                      {fmtToPar(r.toPar)}
+                      {fmtToParFraction(r.toPar)}
                     </td>
                   </tr>
                 ))}
