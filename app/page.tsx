@@ -13,6 +13,7 @@ type GameRow = {
   status: string;
   createdAt: string;
   team: number;
+  isCreator: boolean;
   players: { name: string; team: number }[];
 };
 
@@ -129,6 +130,24 @@ export default function HomePage() {
     }
   }, []);
 
+  const deleteGame = useCallback(
+    async (g: GameRow) => {
+      if (
+        !window.confirm(
+          `Delete "${g.name}" (code ${g.code})? This erases the round for everyone and can't be undone.`
+        )
+      )
+        return;
+      setGames((prev) => prev.filter((x) => x.code !== g.code));
+      try {
+        await api(`/api/games/${g.code}`, { method: "DELETE" });
+      } catch {
+        load(); // restore on failure
+      }
+    },
+    [load]
+  );
+
   useEffect(() => {
     load();
   }, [load]);
@@ -208,37 +227,46 @@ export default function HomePage() {
               const t1 = g.players.filter((p) => p.team === 1).map((p) => p.name);
               const t2 = g.players.filter((p) => p.team === 2).map((p) => p.name);
               return (
-                <Link
-                  key={g.code}
-                  href={`/g/${g.code}`}
-                  className="card block p-4"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-display text-lg font-bold">
-                      {g.name}
-                    </span>
-                    <span
-                      className={`chip ${
-                        g.status === "final"
-                          ? "bg-ink text-cream"
-                          : "bg-gold/30 text-ink"
-                      }`}
-                    >
-                      {g.status === "final" ? "Final" : "Live"}
-                    </span>
+                <div key={g.code} className="card p-4">
+                  <Link href={`/g/${g.code}`} className="block">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display text-lg font-bold">
+                        {g.name}
+                      </span>
+                      <span
+                        className={`chip ${
+                          g.status === "final"
+                            ? "bg-ink text-cream"
+                            : "bg-gold/30 text-ink"
+                        }`}
+                      >
+                        {g.status === "final" ? "Final" : "Live"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-faint">
+                      {t1.join(" & ")} <span className="font-bold">vs</span>{" "}
+                      {t2.join(" & ")}
+                    </p>
+                  </Link>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-faint">
+                      code {g.code} ·{" "}
+                      {new Date(g.createdAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                    {g.isCreator && (
+                      <button
+                        onClick={() => deleteGame(g)}
+                        className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-danger underline"
+                        aria-label={`Delete ${g.name}`}
+                      >
+                        🗑 delete
+                      </button>
+                    )}
                   </div>
-                  <p className="mt-1 text-sm text-faint">
-                    {t1.join(" & ")} <span className="font-bold">vs</span>{" "}
-                    {t2.join(" & ")}
-                  </p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-wider text-faint">
-                    code {g.code} ·{" "}
-                    {new Date(g.createdAt).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-                </Link>
+                </div>
               );
             })}
           </div>

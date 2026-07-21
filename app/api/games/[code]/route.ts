@@ -5,6 +5,25 @@ import { normalizeSettings, validateHoles, type HoleInfo } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
+/** Creator-only: permanently delete a game and all its scores. */
+export async function DELETE(
+  _req: NextRequest,
+  ctx: { params: Promise<{ code: string }> }
+) {
+  const session = await requireSession();
+  if (session instanceof NextResponse) return session;
+
+  const { code } = await ctx.params;
+  const bundle = await loadGameByCode(code);
+  if (!bundle) return NextResponse.json({ ok: true }); // already gone
+  if (bundle.game.created_by !== session.userId)
+    return jsonError(403, "Only the game creator can delete the round.");
+
+  // players / members / scores / peeks / alerts all cascade off games.id.
+  await sql`delete from twentyball.games where id = ${bundle.game.id}`;
+  return NextResponse.json({ ok: true });
+}
+
 /**
  * Creator-only mid-round fixes: settings, course card, player names/handicaps.
  * Body: { settings?, holes?, players?: [{id, name, handicap}] }

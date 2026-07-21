@@ -96,6 +96,7 @@ export async function GET() {
 
   const rows = await sql`
     select g.code, g.name, g.status, g.created_at, m.team,
+      (g.created_by = ${session.userId}) as is_creator,
       (select json_agg(json_build_object('name', p.name, 'team', p.team) order by p.team, p.pos)
        from twentyball.players p where p.game_id = g.id) as players
     from twentyball.members m
@@ -111,6 +112,7 @@ export async function GET() {
       status: r.status,
       createdAt: new Date(r.created_at).toISOString(),
       team: r.team,
+      isCreator: r.is_creator,
       players: r.players ? parseJsonb(r.players) : [],
     })),
   });

@@ -303,7 +303,7 @@ function PlayerRounds({
         <b>Used</b> = how many kept scores each golfer got credit for.{" "}
         <b>To par</b> = what those kept scores added to the team.
         {anySplit
-          ? " Tied scores the team could keep either way split the credit (½, ⅔ …)."
+          ? " When players tie a hole's net score and the team could keep any of them, the credit splits evenly — ½ for two, ⅓ for three, ¼ for four."
           : ""}
         {anyShort ? " * = didn't finish all 18." : ""}
       </p>

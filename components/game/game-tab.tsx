@@ -358,6 +358,31 @@ export function GameTab({
         </button>
       )}
 
+      {viewer.isCreator && (
+        <button
+          className="w-full text-center text-xs font-bold text-danger underline"
+          disabled={busy}
+          onClick={async () => {
+            if (
+              !window.confirm(
+                `Delete "${game.name}" (code ${game.code})? This erases the round for everyone and can't be undone.`
+              )
+            )
+              return;
+            setBusy(true);
+            try {
+              await api(`/api/games/${game.code}`, { method: "DELETE" });
+              window.location.href = "/";
+            } catch (e) {
+              notify(e instanceof Error ? e.message : "Could not delete.");
+              setBusy(false);
+            }
+          }}
+        >
+          🗑 Delete this round
+        </button>
+      )}
+
       <div className="pb-4 text-center">
         <Link href="/" className="text-sm font-bold text-faint underline">
           ← all games
