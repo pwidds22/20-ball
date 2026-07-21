@@ -42,8 +42,15 @@ function StatusHeader({
   return (
     <header className="sticky top-0 z-30 bg-felt text-cream shadow-lg">
       <div className="mx-auto max-w-md px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-widest text-cream/80">
-          <span className="truncate">{game.name}</span>
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cream/80">
+          <Link
+            href="/"
+            aria-label="Back to your games"
+            className="-ml-1 flex h-7 shrink-0 items-center gap-1 rounded-lg bg-felt-deep/60 px-2 text-cream active:scale-95"
+          >
+            <span className="text-sm leading-none">‹</span> Games
+          </Link>
+          <span className="min-w-0 flex-1 truncate">{game.name}</span>
           <span className="shrink-0">
             code {game.code}
             {game.status === "final" && " · FINAL"}
