@@ -513,6 +513,26 @@ export function fmtToParFraction(n: number): string {
   return (n < 0 ? "-" : "+") + fmtUsed(Math.abs(n));
 }
 
+/** Round each value to the nearest ½ while keeping the group's total exact
+ *  (largest-remainder on a half-unit grid). Used to tidy the split breakdowns
+ *  so columns still add up. Works with negative values (to-par). */
+export function roundHalvesToSum(values: number[], targetSum: number): number[] {
+  if (values.length === 0) return [];
+  const doubledTarget = Math.round(targetSum * 2);
+  const scaled = values.map((v) => v * 2);
+  const floored = scaled.map((v) => Math.floor(v + 1e-9));
+  let remainder = doubledTarget - floored.reduce((a, b) => a + b, 0);
+  const order = scaled
+    .map((v, i) => ({ i, frac: v - Math.floor(v + 1e-9) }))
+    .sort((a, b) => b.frac - a.frac);
+  const result = floored.slice();
+  for (let k = 0; remainder > 0 && k < order.length; k++, remainder--)
+    result[order[k].i] += 1;
+  for (let k = order.length - 1; remainder < 0 && k >= 0; k--, remainder++)
+    result[order[k].i] -= 1;
+  return result.map((v) => v / 2);
+}
+
 export function netLabel(netToPar: number): string {
   if (netToPar <= -3) return "Albatross";
   if (netToPar === -2) return "Eagle";

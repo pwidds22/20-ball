@@ -7,6 +7,7 @@ import {
   fmtUsed,
   optimalSelection,
   playerRoundTotals,
+  roundHalvesToSum,
   type GameState,
   type HoleInfo,
   type TeamView,
@@ -325,6 +326,10 @@ function OptimalCard({
 }) {
   const opt = optimalSelection(view, holes, keepTarget);
   const nailed = opt.leftOnTable === 0;
+  const rows = opt.perPlayer.slice().sort((a, b) => b.count - a.count);
+  // Tidy the split fractions to the nearest ½ while keeping the columns exact.
+  const counts = roundHalvesToSum(rows.map((r) => r.count), opt.optimalCount);
+  const toPars = roundHalvesToSum(rows.map((r) => r.toPar), opt.optimalToPar);
   return (
     <div className="card overflow-hidden">
       <div className="bg-felt px-3 py-2 font-display font-bold text-cream">
@@ -367,25 +372,22 @@ function OptimalCard({
           </p>
           <table className="w-full text-sm">
             <tbody>
-              {opt.perPlayer
-                .slice()
-                .sort((a, b) => b.count - a.count)
-                .map((r) => (
-                  <tr
-                    key={r.player.id}
-                    className="border-b border-line last:border-0"
-                  >
-                    <td className="py-1 text-left font-display font-bold">
-                      {r.player.name}
-                    </td>
-                    <td className="py-1 text-center tabular-nums text-faint">
-                      {fmtUsed(r.count)} scores
-                    </td>
-                    <td className="py-1 text-right font-bold tabular-nums">
-                      {fmtToParFraction(r.toPar)}
-                    </td>
-                  </tr>
-                ))}
+              {rows.map((r, i) => (
+                <tr
+                  key={r.player.id}
+                  className="border-b border-line last:border-0"
+                >
+                  <td className="py-1 text-left font-display font-bold">
+                    {r.player.name}
+                  </td>
+                  <td className="py-1 text-center tabular-nums text-faint">
+                    {fmtUsed(counts[i])} scores
+                  </td>
+                  <td className="py-1 text-right font-bold tabular-nums">
+                    {fmtToParFraction(toPars[i])}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

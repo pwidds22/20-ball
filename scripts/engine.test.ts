@@ -12,6 +12,7 @@ import {
   keptSummaryPlayed,
   normalizeSettings,
   optimalSelection,
+  roundHalvesToSum,
   orderIndex,
   playOrder,
   playerRoundTotals,
@@ -309,6 +310,21 @@ const E = (
   assert.strictEqual(fmtUsed(byId["b"].count), "⅔");
   const totalCount = opt.perPlayer.reduce((s, r) => s + r.count, 0);
   assert.ok(Math.abs(totalCount - 2) < 1e-9, "counts sum to the 2 slots");
+}
+
+// ── round-to-½ keeps the column total exact ──
+{
+  // 10.692 + 9.308 = 20 -> 10.5 + 9.5
+  assert.deepStrictEqual(roundHalvesToSum([10.692, 9.308], 20), [10.5, 9.5]);
+  // to-par can be negative and must still sum exactly
+  const r = roundHalvesToSum([-8.3, -3.7], -12);
+  assert.strictEqual(r[0] + r[1], -12);
+  for (const v of r) assert.strictEqual(v * 2, Math.round(v * 2), "on ½ grid");
+  // 4-way (40 ball) still sums to the target
+  const four = roundHalvesToSum([10.4, 9.9, 10.1, 9.6], 40);
+  assert.strictEqual(four.reduce((a, b) => a + b, 0), 40);
+  // float noise near a whole number snaps clean
+  assert.deepStrictEqual(roundHalvesToSum([9.999999999998, 10.000000000002], 20), [10, 10]);
 }
 
 // ── contribution formatting: 6 kept pars = E, birdies negative, halves ──
