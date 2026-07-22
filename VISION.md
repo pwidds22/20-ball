@@ -57,7 +57,10 @@ scoring logic) carries over intact; only the UI gets rebuilt natively.
   - Group games: skins, Nassau, wolf, 20 Ball, 40 Ball
 - **The stroke engine** — the heart of it. Given handicaps + format + course,
   compute exactly how many strokes each player/side gets and on which holes.
-  This is the expertise most golfers don't have and the reason to open the app.
+  Necessary but not sufficient: rivals compute strokes too, so *fair strokes
+  alone is table-stakes.* Our moat is the **combination** — fair strokes,
+  *shown* (not a black box), on a live, focused, no-money scorecard, with formats
+  nobody else has (hidden-info 20 Ball). See [ROADMAP.md](ROADMAP.md).
 - **Live scorecard + results** — run the game hole by hole, see who's winning,
   record the outcome.
 - **Side-game odds** — handicap-fair terms for the little bets people actually
@@ -87,8 +90,9 @@ beatable.
 
 - Not a shot-by-shot GPS or strokes-gained tracker.
 - Not a gambling / money-handling product. It organizes friendly games and keeps
-  score; any stakes stay between the players. (Money movement carries real App
-  Store and legal constraints and is out of scope.)
+  score — it can tally who owes who and show a settle-up card, but players settle
+  themselves; the app never holds or moves money. (Money movement carries real
+  App Store and legal constraints and is out of scope.)
 
 ## Current state
 
@@ -99,20 +103,21 @@ bridge described above), but already exercises the hardest part — the stroke
 engine + live scorecard — so it's a strong base to generalize on and to point a
 native client at later.
 
-## Rough roadmap
+## Roadmap
 
-1. **Now:** 20 / 40 Ball as a web app, solid and in real use with friends.
-2. **Generalize the stroke engine** so it's format-aware — it already computes
-   per-hole strokes off the low handicap; extend it to match / best-ball / skins
-   allocation rules.
-3. **Add the first "everyday" formats** — singles match and 2v2 best ball, the
-   ones people ask about most.
-4. **Profiles, friends, and history** — pick a saved opponent, auto-fill
-   handicaps, record head-to-head.
-5. **Round tracking** that feeds handicaps.
-6. **Rename / rebrand** from "20 Ball" to the platform name.
-7. **Build the native mobile app** (iOS + Android) against the existing API —
-   the real product. Retire the web app to a marketing / landing-page role.
+The detailed, current plan lives in **[ROADMAP.md](ROADMAP.md)** — prioritized
+features, the phased sequence, a competitor teardown, and the strategic calls
+(web-first → PWA → native via Expo, gated on real signal; track-but-never-move
+money). The short version:
 
-Keeping the codebase API-first from here on is what makes step 7 cheap: don't
-bury game logic in the browser; it belongs in the shared backend.
+1. **Now:** 20 / 40 Ball as a web app, in real use with friends.
+2. **Format-aware stroke engine** + the everyday formats (singles match, 2v2 best
+   ball) — the reach unlock.
+3. **Fair side bets** (net dots + skins) + a shareable settle-up card.
+4. **Profiles, friends, and a Rivals scoreboard** — records + running stakes.
+5. **Growth loop** — PWA push, onboarding, frictionless guest join.
+6. **Native app** (Expo/React Native) against the existing API once signal hits;
+   rebrand off "20 Ball" then.
+
+Keeping the codebase **API-first** from here on is what makes the native step
+cheap: don't bury game logic in the browser; it belongs in the shared backend.
