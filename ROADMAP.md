@@ -145,6 +145,14 @@ on top.
   net scores; low rework risk.
 - **Shareable settlement/results card** — real-$ "who-owes-who," tracked & self-settled.
 - **Real-money stakes tracking** — compute results, show settle-up; **never move money.**
+- **Handicap onboarding (the ladder)** — *activation-critical:* most casual
+  golfers have no official handicap (GHIN needs club affiliation + ~$40–60/yr),
+  so "enter your index" blocks the very audience we want. Meet them where they
+  are: **(1)** have an index → type it; **(2)** don't → enter your last **3–5
+  rounds** (course → tee → score) for a real WHS-methodology index; **(3)** no
+  idea → *"what do you usually shoot?"* → provisional estimate so they can play
+  now; **(4)** auto-refine from every round played in-app; **(5)** "add a past
+  round" anytime.
 
 **Tier 3 — Return & invite (retention loop)**
 - **Profiles + friends / saved opponents** — social graph; auto-fills handicaps.
@@ -166,7 +174,10 @@ on top.
 
 **Deferred (real, but later / post-signal)**
 - **Side bets v2: CTP / long-drive stake-suggester odds model** (research-y).
-- **Round tracking → handicaps** (deepest loop, least differentiated).
+- **Full stats tracking** — fairways/GIR/putts/shot-level. Still 18Birdies' lane.
+  *(Note: lightweight round entry — score + course + tee, enough to compute an
+  index — is NOT deferred; it moved into Phase 3. The scope boundary is stats,
+  not scores.)*
 - **Rebrand + native (Expo)** — triggered by signal, not a date.
 
 ---
@@ -181,6 +192,9 @@ Warm up, ship visible wins, surface iOS PWA quirks now rather than late.
 - Rematch button (clone a finished game's teams + settings).
 - Funnel instrumentation (minimal — you have a PostHog project).
 - Harden guest / share-link join (this is a headline wedge — start early).
+- **Stopgap handicap estimator** — *"what do you usually shoot?"* → provisional
+  index, so a handicap-less newcomer is never blocked. (Trivial; the real
+  engine lands in Phase 3.)
 - **Exit:** install 20ball.golf to the iPhone home screen, opens full-screen,
   "Rematch" works, a guest can join by link without an account. Verified on iPhone.
 
@@ -209,7 +223,31 @@ The delight layer, riding the generalized engine.
 - **Exit:** add dots + skins to any game, watch them tally live, get a clean
   shareable settle-up card.
 
-### Phase 3 — Social graph + Rivals scoreboard · *~3–4 weeks*
+### Phase 3 — Handicaps for everyone · *~2–3 weeks*
+Close the cold-start gap: most casual golfers have no official handicap, so
+"enter your index" blocks the exact audience we're chasing. This makes the
+fairness promise real for a stranger, not just for friends who already know
+their number.
+- **Capture Course Rating + Slope, and make tee selection real.** Today
+  `app/api/courses/search/route.ts` reads only `par`/`handicap` per hole and
+  auto-picks the first usable tee — the WHS differential needs rating + slope,
+  and both are *per tee*. (Verify golfcourseapi returns them; likely yes.)
+- **WHS-methodology index** in the pure engine:
+  `differential = (113/slope) × (adjusted gross − course rating)`, index =
+  average of the lowest 8 of the last 20, with the **short-record lookup table**
+  so **3 rounds is enough** to establish a number.
+- **Round entry UI** — search course → pick tee → enter score. Used both to
+  backfill at onboarding and to **"add a past round" anytime**.
+- **Auto-refine** — rounds played in-app feed the index automatically;
+  provisional estimates converge to computed ones.
+- **Show the derivation** — how the number was reached, and whether it's
+  provisional or computed. Label it an **"estimated index," never "Handicap
+  Index®"** (that's the USGA's, and requires an authorized association).
+- *Scope boundary:* score + course + tee only. **No** fairways/GIR/putts.
+- **Exit:** a brand-new user with no handicap enters 3 rounds and walks away with
+  a defensible index — and can then start a fair match.
+
+### Phase 4 — Social graph + Rivals scoreboard · *~3–4 weeks*
 Make people return and invite.
 - Profiles with stored handicap; friends / saved opponents → auto-fill at creation.
 - **Rivals scoreboard** — persistent standings across your regulars: W/L record +
@@ -217,7 +255,7 @@ Make people return and invite.
 - Head-to-head history; season standings.
 - **Exit:** pick a saved friend to start a game; see the Rivals scoreboard update.
 
-### Phase 4 — Growth loop: push + onboarding · *~2–3 weeks*
+### Phase 5 — Growth loop: push + onboarding · *~2–3 weeks*
 Convert newcomers, re-engage the lapsed.
 - PWA push ("your turn," etc.).
 - "How to play" onboarding — a 60-second first run for invited strangers.
@@ -225,7 +263,7 @@ Convert newcomers, re-engage the lapsed.
 - **Exit:** an invitee goes link → understands → playing smoothly, gets a push
   when it's their turn.
 
-### Phase 5 — Side bets v2: the odds model · *~3–4 weeks, gated, specced separately*
+### Phase 6 — Side bets v2: the odds model · *~3–4 weeks, gated, specced separately*
 The speculative differentiator.
 - Closest-to-pin / long-drive **stake-suggester** (odds from handicap/skill) —
   unclaimed territory LevelGolf left open.
@@ -234,7 +272,7 @@ The speculative differentiator.
   simulated-gambling App Store flag.
 - Gate behind "core side bets are used and loved."
 
-**Total through Tier 1–4 on web: ~11–16 focused weeks → realistically ~3–5 months.**
+**Total through Phase 5 on web: ~13–19 focused weeks → realistically ~4–6 months.**
 
 ---
 
@@ -254,7 +292,12 @@ games include someone you didn't personally invite.**
 ## 7. Open decisions (to spec when reached)
 
 - **Best-ball allowance convention** (Phase 1) — off low man vs % of difference; full vs 90%.
-- **Odds-model design** (Phase 5) — the outcome-probability-by-handicap math for CTP/long-drive.
+- **Course Rating / Slope availability** (Phase 3) — confirm golfcourseapi returns
+  `course_rating` + `slope_rating` per tee. If not, source them elsewhere or fall
+  back to a par-based estimate (less rigorous — decide the tradeoff then).
+- **Handicap naming** (Phase 3) — what to call the computed number ("estimated
+  index"? app-branded, à la "GGB Handicap"?) without implying USGA officialdom.
+- **Odds-model design** (Phase 6) — the outcome-probability-by-handicap math for CTP/long-drive.
 - **Rebrand name** (at native) — leaning golf-games-flavored; avoid "Handicapper"
   (reads as a crowded handicap-tracker category).
 - **Monetization** (post-signal) — free vs freemium; deliberately unresolved until reach is proven.
