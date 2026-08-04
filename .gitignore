@@ -33,8 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# deployment secrets (copy lib/config.example.ts to recreate)
-/lib/config.ts
+# NOTE: lib/config.ts used to live here. It is now committed and secret-free —
+# it reads everything from the environment, so GitHub-triggered builds can
+# resolve it. Secrets go in .env.local (above) or Vercel env vars.
 
 # vercel
 .vercel

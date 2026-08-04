@@ -1,5 +1,6 @@
-# Upload filter for `vercel deploy` (replaces .gitignore for uploads,
-# which lets the gitignored lib/config.ts ship with the deployment).
+# Upload filter for `vercel deploy`. NOTE: this REPLACES .gitignore for
+# uploads, so anything secret must be listed here explicitly — being in
+# .gitignore is not enough to keep it out of a CLI deployment.
 node_modules
 .next
 .git
@@ -7,3 +8,7 @@ node_modules
 scripts
 *.tsbuildinfo
 next-env.d.ts
+
+# Local secrets. Deployments read these from Vercel env vars; uploading the
+# file would both ship secrets in the bundle and shadow the project settings.
+.env*
