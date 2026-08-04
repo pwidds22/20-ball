@@ -9,6 +9,7 @@ import {
   startHoleOf,
   teamEntries,
   teamPendingHole,
+  teamPlayers,
 } from "@/lib/game-server";
 import { orderIndex } from "@/lib/engine";
 
@@ -91,6 +92,21 @@ export async function POST(
         orderIndex(pending, start) < orderIndex(hole, start)
       )
         return jsonError(400, `Lock in hole ${pending} first.`);
+    }
+    // Everyone on the team must have posted something before the hole can be
+    // locked: a real score, or an X if they picked up. Locking while a teammate
+    // has no entry strands that score permanently — under the locked policy the
+    // hole falls behind decidedThruOrder and can never be filled in.
+    const noEntry = teamPlayers(bundle, myTeam).filter(
+      (p) => !holeEntries.some((e) => e.playerId === p.id)
+    );
+    if (noEntry.length > 0) {
+      const who = noEntry.map((p) => p.name).join(" and ");
+      return jsonError(
+        400,
+        `Enter a score for ${who} on hole ${hole} first — or mark an X if ` +
+          `they picked up.`
+      );
     }
     const undecidedHere = holeEntries.filter((e) => !e.decided && !e.pickup);
     const covered = new Set(initial.map((d) => d.playerId));

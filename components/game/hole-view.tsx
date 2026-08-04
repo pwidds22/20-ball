@@ -373,6 +373,14 @@ export function HoleView({
   const wouldKeep = mine.keptCount + keepAdds;
   const overCap = wouldKeep > target;
 
+  // Teammates with nothing posted on this hole. The server refuses to lock in
+  // that state (it would strand their score for good), so block it here too
+  // rather than round-tripping to an error.
+  const missingScore = mine.players.filter((p) => !cellOf(p));
+  // Declining a score spends one of a finite pool — surface what it costs.
+  const wouldSkip = undecided.filter((p) => selections[p.id] === false).length;
+  const skipsAfter = mine.skipsLeft - wouldSkip;
+
   const allSettled =
     mine.players.every((p) => {
       const c = cellOf(p);
@@ -585,10 +593,11 @@ export function HoleView({
               );
             })}
           </ul>
-          {mine.players.some((p) => !cellOf(p)) && policy === "locked" && (
-            <p className="mt-3 rounded-lg border-2 border-gold bg-gold/15 p-2 text-sm font-bold">
-              ⚠ Not every player has a score on this hole — once locked, the
-              hole closes and missing scores can&apos;t be added.
+          {missingScore.length > 0 && (
+            <p className="mt-3 rounded-lg border-2 border-danger bg-danger/10 p-2 text-sm font-bold text-danger">
+              ⚠ {missingScore.map((p) => p.name).join(" and ")} still
+              {missingScore.length > 1 ? " have " : " has "}no score on this
+              hole. Enter one — or an X if they picked up — before locking.
             </p>
           )}
           <p className="mt-3 text-center text-sm">
@@ -596,6 +605,34 @@ export function HoleView({
             {policy === "locked"
               ? "This is final — no take-backs."
               : "Changing it later alerts the other team."}
+          </p>
+          {/* The pool is the constraint people never see coming: every score
+              you decline is gone for good, and running out forces you to bank
+              whatever you make down the stretch. */}
+          <p className="mt-1 text-center text-sm text-faint">
+            {wouldSkip > 0 ? (
+              <>
+                Declining {wouldSkip} here leaves{" "}
+                <b
+                  className={
+                    skipsAfter <= 2 ? "text-danger" : undefined
+                  }
+                >
+                  {skipsAfter}
+                </b>{" "}
+                score{skipsAfter === 1 ? "" : "s"} you can still throw away.
+              </>
+            ) : (
+              <>
+                <b>{mine.skipsLeft}</b> score
+                {mine.skipsLeft === 1 ? "" : "s"} you can still throw away.
+              </>
+            )}
+            {skipsAfter <= 0 && (
+              <b className="block text-danger">
+                After this you must keep every score left.
+              </b>
+            )}
           </p>
           <div className="mt-4 flex gap-2">
             <button
@@ -606,7 +643,7 @@ export function HoleView({
             </button>
             <button
               className="btn btn-felt h-12 flex-1"
-              disabled={busy}
+              disabled={busy || missingScore.length > 0}
               onClick={lockIn}
             >
               Lock it in
