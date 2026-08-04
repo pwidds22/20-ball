@@ -39,7 +39,11 @@ export const DEFAULT_SETTINGS: Settings = {
   allowPar3Strokes: false,
   peeksPerTeam: 0,
   revealEvery: 0,
-  keepPolicy: "locked",
+  // Flexible by default: "locked" reads like the responsible choice, so groups
+  // pick it without realising it also blocks fixing an honest mis-tap. Flexible
+  // gets the same integrity from transparency — every change alerts the other
+  // team — without stranding people who tapped the wrong thing.
+  keepPolicy: "flexible",
   handicapPercent: 100,
   startHoles: [1, 1],
 };
@@ -619,7 +623,7 @@ export function normalizeSettings(
     const n = Math.round(Number(v));
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
   };
-  let policy: KeepPolicy = s.keepPolicy === "flexible" ? "flexible" : "locked";
+  let policy: KeepPolicy = s.keepPolicy === "locked" ? "locked" : "flexible";
   if (input && "lockKeeps" in input && input.keepPolicy === undefined)
     policy = input.lockKeeps === false ? "flexible" : "locked";
   const rawStarts = Array.isArray(s.startHoles) ? s.startHoles : [1, 1];
