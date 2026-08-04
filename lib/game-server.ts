@@ -35,7 +35,9 @@ export type GameBundle = {
     team2_done: boolean;
   };
   players: PlayerInfo[]; // strokes populated
-  members: { user_id: string; team: number }[];
+  /** `player_id` is the golfer this account claimed at join; null for
+   *  memberships made before claiming existed, or a viewer who claimed none. */
+  members: { user_id: string; team: number; player_id: string | null }[];
   entries: Entry[];
   peeks: { team: number; thru: number; snapshot: { keptCount: number; toPar: number }; created_at: Date }[];
   alerts: { team: number; message: string; created_at: Date }[];
@@ -81,7 +83,7 @@ export async function loadGameByCode(code: string): Promise<GameBundle | null> {
     await Promise.all([
       sql`select id, team, pos, name, handicap::float8 as handicap
           from twentyball.players where game_id = ${game.id} order by team, pos`,
-      sql`select user_id, team from twentyball.members where game_id = ${game.id}`,
+      sql`select user_id, team, player_id from twentyball.members where game_id = ${game.id}`,
       sql`select player_id, hole, gross, pickup, kept, decided
           from twentyball.scores where game_id = ${game.id}`,
       sql`select team, thru, snapshot, created_at
