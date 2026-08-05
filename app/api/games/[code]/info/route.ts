@@ -19,15 +19,25 @@ export async function GET(
     code: bundle.game.code,
     name: bundle.game.name,
     status: bundle.game.status,
-    players: bundle.players.map((p) => ({
-      name: p.name,
-      handicap: p.handicap,
-      team: p.team,
-    })),
+    players: bundle.players.map((p) => {
+      const claim = bundle.members.find((m) => m.player_id === p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        handicap: p.handicap,
+        team: p.team,
+        // Someone else's phone is already on this golfer.
+        taken: !!claim && claim.user_id !== session.userId,
+        isYou: !!claim && claim.user_id === session.userId,
+      };
+    }),
     memberCounts: {
       1: bundle.members.filter((m) => m.team === 1).length,
       2: bundle.members.filter((m) => m.team === 2).length,
     },
     yourTeam: memberTeam(bundle, session.userId),
+    yourPlayerId:
+      bundle.members.find((m) => m.user_id === session.userId)?.player_id ??
+      null,
   });
 }

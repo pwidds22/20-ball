@@ -144,6 +144,10 @@ export default function GamePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [peekConfirm, setPeekConfirm] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
+  // Opponent alerts already seen, so the Game tab can badge the rest. The toast
+  // below only fires for alerts that land while you're looking; this catches the
+  // ones raised while you were on another tab or had the app shut.
+  const [seenOppAlerts, setSeenOppAlerts] = useState(0);
   const [peekResult, setPeekResult] = useState<{
     thru: number;
     keptCount: number;
@@ -203,6 +207,14 @@ export default function GamePage() {
     }
   }, [state, notify]);
 
+  // Reading the change log is what marks them seen.
+  useEffect(() => {
+    if (tab === "game" && state)
+      setSeenOppAlerts(
+        state.alerts.filter((a) => a.team !== state.viewer.team).length
+      );
+  }, [tab, state]);
+
   const doPeek = async () => {
     try {
       const res = await api<{
@@ -240,6 +252,12 @@ export default function GamePage() {
       </main>
     );
   }
+
+  const unreadOppAlerts = Math.max(
+    0,
+    state.alerts.filter((a) => a.team !== state.viewer.team).length -
+      seenOppAlerts
+  );
 
   const winnerBanner = (() => {
     if (!state.final) return null;
@@ -350,12 +368,20 @@ export default function GamePage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`btn h-12 flex-col gap-0 text-[11px] ${
+              className={`btn relative h-12 flex-col gap-0 text-[11px] ${
                 tab === t ? "bg-felt text-cream" : "text-faint"
               }`}
             >
               <span className="text-base leading-none">{icon}</span>
               {label}
+              {t === "game" && unreadOppAlerts > 0 && (
+                <span
+                  aria-label={`${unreadOppAlerts} unread change${unreadOppAlerts === 1 ? "" : "s"} by the other team`}
+                  className="absolute right-1.5 top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-paper bg-danger px-1 text-[10px] font-black text-cream"
+                >
+                  {unreadOppAlerts}
+                </span>
+              )}
             </button>
           ))}
         </div>

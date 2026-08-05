@@ -1,12 +1,20 @@
-// Template for lib/config.ts (which is gitignored because it holds secrets).
-// Copy this file to lib/config.ts and fill in real values, or simply set
-// DATABASE_URL and AUTH_SECRET as environment variables instead.
+// Template for local development secrets.
+//
+// lib/config.ts is committed and reads everything from the environment, so
+// there is nothing to copy into it. Instead, create a gitignored .env.local in
+// the project root with these keys:
+//
+//   DATABASE_URL=postgresql://user:password@host:6543/postgres
+//   AUTH_SECRET=generate-a-long-random-hex-string
+//   GOLF_COURSE_API_KEY=optional-free-key-from-golfcourseapi.com
+//
+// Generate an AUTH_SECRET with:
+//   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+//
+// For deployments, set the same names in the Vercel project's environment
+// variables (all environments you build for — Production and Preview).
+//
+// GOLF_COURSE_API_KEY is optional: it enables in-app course search (pars and
+// stroke indexes for ~30k courses). Leave it unset and the feature hides.
 
-export const DATABASE_URL =
-  process.env.DATABASE_URL ?? "postgresql://user:password@host:6543/postgres";
-
-export const AUTH_SECRET =
-  process.env.AUTH_SECRET ?? "generate-a-long-random-hex-string";
-
-// Optional: free key from https://golfcourseapi.com enables in-app course search.
-export const GOLF_COURSE_API_KEY = process.env.GOLF_COURSE_API_KEY ?? "";
+export {};

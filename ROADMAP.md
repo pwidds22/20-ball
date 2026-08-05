@@ -243,6 +243,20 @@ their number.
 - **Show the derivation** — how the number was reached, and whether it's
   provisional or computed. Label it an **"estimated index," never "Handicap
   Index®"** (that's the USGA's, and requires an authorized association).
+- **Slope-adjust the strokes given in a match** (course handicap, not just the
+  index). Course handicap is `index × (slope/113) + (course rating − par)`.
+  Playing off the low man, the `(rating − par)` term is identical for everyone
+  and cancels out of the stroke *differences* — so **only slope matters**, and
+  it is arithmetically the same factor `settings.handicapPercent` already
+  applies (slope 105 ≈ 93%, slope 125 ≈ 111%). **No new engine math**: capture
+  slope, derive the percentage from it, done. Keep the manual percentage as a
+  separate competition-allowance override — allowance and slope are two
+  different golf concepts sharing one field today, and should be split.
+  - *Why it matters:* on an easy course a 22 genuinely should not receive 16
+    more shots than a 6. Real complaint from a real round (2026-08-04).
+  - *Magnitude, measured:* replaying that round across slopes 100–140 moved the
+    margin only between 4 and 6 shots and never changed the winner. Worth
+    building for correctness, not because it decides matches.
 - *Scope boundary:* score + course + tee only. **No** fairways/GIR/putts.
 - **Exit:** a brand-new user with no handicap enters 3 rounds and walks away with
   a defensible index — and can then start a fair match.
@@ -295,6 +309,11 @@ games include someone you didn't personally invite.**
 - **Course Rating / Slope availability** (Phase 3) — confirm golfcourseapi returns
   `course_rating` + `slope_rating` per tee. If not, source them elsewhere or fall
   back to a par-based estimate (less rigorous — decide the tradeoff then).
+  Blocks both the index calc *and* slope-adjusted strokes; without slope we are
+  permanently assuming 113 (a neutral course) for every round.
+- **Slope vs allowance in one field** (Phase 3) — `handicapPercent` currently
+  serves as a manual competition allowance, but slope adjustment wants the same
+  multiplier. Split into two fields, or derive one and let the other override?
 - **Handicap naming** (Phase 3) — what to call the computed number ("estimated
   index"? app-branded, à la "GGB Handicap"?) without implying USGA officialdom.
 - **Odds-model design** (Phase 6) — the outcome-probability-by-handicap math for CTP/long-drive.

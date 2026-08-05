@@ -6,13 +6,24 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/client";
 import { Spinner } from "@/components/ui";
 
+type InfoPlayer = {
+  id: string;
+  name: string;
+  handicap: number;
+  team: number;
+  /** Another phone already claimed this golfer. */
+  taken: boolean;
+  isYou: boolean;
+};
+
 type Info = {
   code: string;
   name: string;
   status: string;
-  players: { name: string; handicap: number; team: number }[];
+  players: InfoPlayer[];
   memberCounts: Record<string, number>;
   yourTeam: number | null;
+  yourPlayerId: string | null;
 };
 
 function JoinInner() {
@@ -53,12 +64,14 @@ function JoinInner() {
     if (code.trim()) lookup(code);
   };
 
-  const join = async (team: number) => {
+  // You claim a PLAYER, not a team — the server reads the team off the roster,
+  // so you can't end up watching the wrong side's card.
+  const join = async (playerId: string) => {
     setBusy(true);
     setErr("");
     try {
       const res = await api<{ code: string }>("/api/games/join", {
-        body: { code: info!.code, team },
+        body: { code: info!.code, playerId },
       });
       router.push(`/g/${res.code}`);
     } catch (e) {
@@ -99,36 +112,57 @@ function JoinInner() {
           <div className="text-center">
             <p className="font-display text-xl font-bold">{info.name}</p>
             <p className="text-xs font-bold uppercase tracking-widest text-faint">
-              pick your team
+              which one are you?
             </p>
           </div>
           {[1, 2].map((team) => {
             const roster = info.players.filter((p) => p.team === team);
+            if (roster.length === 0) return null;
             return (
-              <button
-                key={team}
-                className="card block w-full p-4 text-left"
-                onClick={() => join(team)}
-                disabled={busy}
-              >
-                <div className="flex items-center justify-between">
+              <div key={team}>
+                <div className="mb-1.5 flex items-center justify-between px-1">
                   <span className="chip bg-felt text-cream">Team {team}</span>
                   <span className="text-xs font-bold uppercase text-faint">
-                    {info.memberCounts[team] ?? 0} phone
-                    {(info.memberCounts[team] ?? 0) === 1 ? "" : "s"} on it
+                    with {roster.map((p) => p.name).join(" & ")}
                   </span>
                 </div>
-                <p className="mt-2 font-bold">
-                  {roster.map((p) => `${p.name} (${p.handicap})`).join(" & ")}
-                </p>
-                {info.yourTeam === team && (
-                  <p className="mt-1 text-xs font-bold uppercase text-felt">
-                    you&apos;re already on this team — tap to continue
-                  </p>
-                )}
-              </button>
+                <div className="space-y-2">
+                  {roster.map((p) => (
+                    <button
+                      key={p.id}
+                      className={`card block w-full p-4 text-left ${
+                        p.taken ? "opacity-50" : ""
+                      }`}
+                      onClick={() => join(p.id)}
+                      disabled={busy || p.taken}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-display text-lg font-bold">
+                          {p.name}
+                        </span>
+                        <span className="text-sm font-bold text-faint">
+                          {p.handicap} hcp
+                        </span>
+                      </div>
+                      {p.isYou ? (
+                        <p className="mt-1 text-xs font-bold uppercase text-felt">
+                          that&apos;s you — tap to continue
+                        </p>
+                      ) : p.taken ? (
+                        <p className="mt-1 text-xs font-bold uppercase text-faint">
+                          already on another phone
+                        </p>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
             );
           })}
+          <p className="pt-1 text-center text-xs text-faint">
+            Tap the player you&apos;re playing as — your team comes from the
+            card, so you can&apos;t end up on the wrong side.
+          </p>
         </div>
       )}
     </main>

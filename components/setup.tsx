@@ -215,14 +215,14 @@ export function SettingsEditor({
         onChange={(v) => set({ allowPar3Strokes: v })}
       />
       <Toggle
-        label="Lock in scores for good"
+        label="Let players fix mistakes"
         hint={
-          settings.keepPolicy === "locked"
-            ? "On: once you lock a hole, you can't change which scores count."
-            : "Off: you can change a locked hole, but the other team is alerted."
+          settings.keepPolicy === "flexible"
+            ? "On: tapped the wrong thing? Change it — the other team is told exactly what changed."
+            : "Off: a locked hole is final, even if it was a mis-tap. For money games."
         }
-        checked={settings.keepPolicy === "locked"}
-        onChange={(v) => set({ keepPolicy: v ? "locked" : "flexible" })}
+        checked={settings.keepPolicy === "flexible"}
+        onChange={(v) => set({ keepPolicy: v ? "flexible" : "locked" })}
       />
       <div className="flex items-center justify-between gap-3 py-2">
         <span>

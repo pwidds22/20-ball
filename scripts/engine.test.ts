@@ -23,7 +23,10 @@ import {
   type PlayerInfo,
 } from "../lib/engine.ts";
 
-const S = { ...DEFAULT_SETTINGS };
+// These cases were written against the locked policy (lock ordering, no
+// backfill, immutable decisions), so they pin it explicitly rather than ride on
+// DEFAULT_SETTINGS — the default is now "flexible" and is asserted separately.
+const S = { ...DEFAULT_SETTINGS, keepPolicy: "locked" as const };
 const holes = STANDARD_HOLES;
 const par3s = holes.filter((h) => h.par === 3).map((h) => h.hole);
 const noStrokes = () => new Array<number>(19).fill(0);
@@ -346,6 +349,28 @@ const E = (
   const s2 = normalizeSettings({ startHoles: [10, 27 as never] });
   assert.deepStrictEqual(s2.startHoles, [10, 18]);
   assert.strictEqual(normalizeSettings({ lockKeeps: false }).keepPolicy, "flexible");
+}
+
+// ── keep policy defaults to flexible ──
+// Groups read "locked" as the responsible option and pick it without realising
+// it also blocks fixing an honest mis-tap, so the default is flexible: changes
+// stay possible, and every one of them alerts the other team.
+{
+  assert.strictEqual(DEFAULT_SETTINGS.keepPolicy, "flexible");
+  assert.strictEqual(normalizeSettings(undefined).keepPolicy, "flexible");
+  assert.strictEqual(normalizeSettings({}).keepPolicy, "flexible");
+  // Explicitly asking for locked still gets locked.
+  assert.strictEqual(
+    normalizeSettings({ keepPolicy: "locked" }).keepPolicy,
+    "locked"
+  );
+  // Legacy lockKeeps flag still wins when keepPolicy is absent.
+  assert.strictEqual(normalizeSettings({ lockKeeps: true }).keepPolicy, "locked");
+  // An unrecognised value falls back to the default, not to locked.
+  assert.strictEqual(
+    normalizeSettings({ keepPolicy: "nonsense" as never }).keepPolicy,
+    "flexible"
+  );
 }
 
 console.log("engine.test.ts: all assertions passed ✅");
