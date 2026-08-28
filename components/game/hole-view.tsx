@@ -295,12 +295,25 @@ function PlayerPanel({
             </div>
           </div>
           {active && policy === "flexible" && (
-            <button
-              className="mt-1.5 text-xs font-bold text-danger underline"
-              onClick={onRequestChange}
-            >
-              change decision (alerts the other team)
-            </button>
+            <div className="mt-1.5">
+              <div className="flex gap-4">
+                <button
+                  className="text-xs font-bold text-faint underline"
+                  onClick={() => setEditing(true)}
+                >
+                  ✎ edit score
+                </button>
+                <button
+                  className="text-xs font-bold text-danger underline"
+                  onClick={onRequestChange}
+                >
+                  change decision
+                </button>
+              </div>
+              <p className="mt-0.5 text-[11px] text-faint">
+                either one alerts the other team
+              </p>
+            </div>
           )}
           {active && policy === "locked" && (
             <p className="mt-1.5 text-xs text-faint">🔒 locked in — final</p>
