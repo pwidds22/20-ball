@@ -14,12 +14,8 @@ import {
 } from "@/lib/engine";
 
 type Draft = { name: string; handicap: string };
-type CourseHit = {
-  id?: number;
-  name: string;
-  where: string;
-  holes: HoleInfo[];
-};
+type CourseHit = { id: string; name: string; where: string };
+type CourseTee = { teeName: string; holes: HoleInfo[] };
 
 const emptyDraft = (): Draft => ({ name: "", handicap: "" });
 
@@ -43,6 +39,7 @@ export default function NewGamePage() {
   const [courseResults, setCourseResults] = useState<CourseHit[] | null>(null);
   const [courseMsg, setCourseMsg] = useState("");
   const [searching, setSearching] = useState(false);
+  const [loadingCourseId, setLoadingCourseId] = useState<string | null>(null);
 
   const teamSize = players.length / 2;
 
@@ -83,13 +80,42 @@ export default function NewGamePage() {
         setCourseResults(res.courses);
         if (res.courses.length === 0)
           setCourseMsg(
-            "No courses with a full scorecard found — try another spelling, or enter the card manually."
+            "No courses found — try another spelling, or enter the card manually."
           );
       }
     } catch (e) {
       setCourseMsg(e instanceof Error ? e.message : "Search failed.");
     } finally {
       setSearching(false);
+    }
+  };
+
+  // Search hits carry no hole data (the course API moved it behind a detail
+  // call) — the card loads when a course is picked.
+  const pickCourse = async (c: CourseHit) => {
+    setLoadingCourseId(c.id);
+    setCourseMsg("");
+    try {
+      const res = await api<{ tees: CourseTee[] }>(`/api/courses/${c.id}`);
+      const tee = res.tees[0];
+      if (!tee) {
+        setCourseMsg(
+          `No full 18-hole card on file for ${c.name} — enter it below instead.`
+        );
+        return;
+      }
+      setHoles(tee.holes.map((h) => ({ ...h })));
+      setCourseName(c.name);
+      setCourseResults(null);
+      setCourseMsg(
+        `Loaded: ${c.name}${tee.teeName ? ` (${tee.teeName} tees)` : ""}`
+      );
+    } catch (e) {
+      setCourseMsg(
+        e instanceof Error ? e.message : "Could not load that course."
+      );
+    } finally {
+      setLoadingCourseId(null);
     }
   };
 
@@ -243,19 +269,18 @@ export default function NewGamePage() {
           {courseMsg && <p className="mb-2 text-sm text-faint">{courseMsg}</p>}
           {courseResults && courseResults.length > 0 && (
             <div className="mb-3 space-y-1.5">
-              {courseResults.map((c, i) => (
+              {courseResults.map((c) => (
                 <button
-                  key={c.id ?? i}
+                  key={c.id}
                   type="button"
-                  className="card block w-full p-2.5 text-left"
-                  onClick={() => {
-                    setHoles(c.holes.map((h) => ({ ...h })));
-                    setCourseName(c.name);
-                    setCourseResults(null);
-                    setCourseMsg(`Loaded: ${c.name}`);
-                  }}
+                  className="card block w-full p-2.5 text-left disabled:opacity-60"
+                  disabled={loadingCourseId !== null}
+                  onClick={() => pickCourse(c)}
                 >
-                  <span className="font-bold">{c.name}</span>
+                  <span className="font-bold">
+                    {loadingCourseId === c.id ? "Loading card… " : ""}
+                    {c.name}
+                  </span>
                   {c.where && (
                     <span className="ml-1.5 text-xs text-faint">{c.where}</span>
                   )}

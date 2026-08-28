@@ -228,10 +228,12 @@ Close the cold-start gap: most casual golfers have no official handicap, so
 "enter your index" blocks the exact audience we're chasing. This makes the
 fairness promise real for a stranger, not just for friends who already know
 their number.
-- **Capture Course Rating + Slope, and make tee selection real.** Today
-  `app/api/courses/search/route.ts` reads only `par`/`handicap` per hole and
-  auto-picks the first usable tee — the WHS differential needs rating + slope,
-  and both are *per tee*. (Verify golfcourseapi returns them; likely yes.)
+- **Capture Course Rating + Slope, and make tee selection real.** Verified
+  2026-08: golfcourseapi returns both per tee, and `app/api/courses/[id]`
+  already serves every usable tee as `{teeName, courseRating, slopeRating,
+  holes}` — the New Game screen just auto-picks `tees[0]` and drops the
+  ratings. What's left here is a tee picker in the UI and storing the chosen
+  tee's numbers on the game.
 - **WHS-methodology index** in the pure engine:
   `differential = (113/slope) × (adjusted gross − course rating)`, index =
   average of the lowest 8 of the last 20, with the **short-record lookup table**
