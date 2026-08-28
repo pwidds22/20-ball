@@ -107,9 +107,9 @@ export default function NewGamePage() {
       setHoles(tee.holes.map((h) => ({ ...h })));
       setCourseName(c.name);
       setCourseResults(null);
-      setCourseMsg(
-        `Loaded: ${c.name}${tee.teeName ? ` (${tee.teeName} tees)` : ""}`
-      );
+      // Some upstream tee names already end in "tees" ("Gold Tees").
+      const teeLabel = tee.teeName.replace(/\s*tees?\s*$/i, "").trim();
+      setCourseMsg(`Loaded: ${c.name}${teeLabel ? ` (${teeLabel} tees)` : ""}`);
     } catch (e) {
       setCourseMsg(
         e instanceof Error ? e.message : "Could not load that course."
