@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { Spinner } from "@/components/ui";
 
-type Me = { id: string; username: string };
+type Me = { id: string; username: string; email: string | null };
 type GameRow = {
   code: string;
   name: string;
@@ -36,22 +36,47 @@ function Brand({ big }: { big?: boolean }) {
   );
 }
 
-function AuthCard({ onDone }: { onDone: () => void }) {
-  const [mode, setMode] = useState<"in" | "up">("up");
+function AuthCard({
+  onDone,
+  resetEnabled,
+}: {
+  onDone: () => void;
+  resetEnabled: boolean;
+}) {
+  const [mode, setMode] = useState<"in" | "up" | "forgot">("up");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [err, setErr] = useState("");
+  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const switchMode = (m: "in" | "up" | "forgot") => {
+    setMode(m);
+    setErr("");
+    setInfo("");
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setErr("");
+    setInfo("");
     try {
-      await api(`/api/auth/${mode === "up" ? "signup" : "login"}`, {
-        body: { username, password },
-      });
-      onDone();
+      if (mode === "forgot") {
+        const res = await api<{ message?: string }>("/api/auth/forgot", {
+          body: { identifier: username },
+        });
+        setInfo(res.message ?? "If that account has an email on file, a reset link is on its way.");
+      } else {
+        await api(`/api/auth/${mode === "up" ? "signup" : "login"}`, {
+          body:
+            mode === "up" && email.trim()
+              ? { username, password, email: email.trim() }
+              : { username, password },
+        });
+        onDone();
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -71,9 +96,11 @@ function AuthCard({ onDone }: { onDone: () => void }) {
           <button
             key={m}
             className={`btn h-10 text-sm ${
-              mode === m ? "bg-paper shadow" : "text-faint"
+              mode === m || (m === "in" && mode === "forgot")
+                ? "bg-paper shadow"
+                : "text-faint"
             }`}
-            onClick={() => setMode(m)}
+            onClick={() => switchMode(m)}
             type="button"
           >
             {label}
@@ -82,7 +109,9 @@ function AuthCard({ onDone }: { onDone: () => void }) {
       </div>
       <form onSubmit={submit} className="space-y-3">
         <div>
-          <label className="label">Username</label>
+          <label className="label">
+            {mode === "forgot" ? "Username or email" : "Username"}
+          </label>
           <input
             className="input"
             value={username}
@@ -92,22 +121,105 @@ function AuthCard({ onDone }: { onDone: () => void }) {
             required
           />
         </div>
-        <div>
-          <label className="label">Password</label>
-          <input
-            className="input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        {mode !== "forgot" && (
+          <div>
+            <label className="label">Password</label>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+        )}
+        {mode === "up" && resetEnabled && (
+          <div>
+            <label className="label">Email (optional — for password resets)</label>
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
+          </div>
+        )}
         {err && <p className="text-sm font-bold text-danger">{err}</p>}
+        {info && <p className="text-sm font-bold text-felt">{info}</p>}
         <button className="btn btn-felt h-12 w-full text-base" disabled={busy}>
-          {busy ? "…" : mode === "up" ? "Create account" : "Sign in"}
+          {busy
+            ? "…"
+            : mode === "up"
+              ? "Create account"
+              : mode === "in"
+                ? "Sign in"
+                : "Email me a reset link"}
         </button>
+        {mode === "in" && resetEnabled && (
+          <button
+            type="button"
+            className="block w-full text-center text-xs font-bold text-faint underline"
+            onClick={() => switchMode("forgot")}
+          >
+            Forgot password?
+          </button>
+        )}
+        {mode === "forgot" && (
+          <button
+            type="button"
+            className="block w-full text-center text-xs font-bold text-faint underline"
+            onClick={() => switchMode("in")}
+          >
+            ← back to sign in
+          </button>
+        )}
       </form>
     </div>
+  );
+}
+
+/** Nags an email-less account once resets exist — that's the address a
+ *  forgotten password gets rescued through. */
+function EmailPrompt({ onSaved }: { onSaved: () => void }) {
+  const [email, setEmail] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr("");
+    try {
+      await api("/api/auth/email", { body: { email } });
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save that email.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="card mb-4 p-3">
+      <p className="label">
+        Add an email so you can reset your password if you forget it
+      </p>
+      <div className="flex gap-2">
+        <input
+          className="input flex-1"
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <button className="btn btn-paper h-12 px-4" disabled={busy}>
+          {busy ? "…" : "Save"}
+        </button>
+      </div>
+      {err && <p className="mt-1 text-sm font-bold text-danger">{err}</p>}
+    </form>
   );
 }
 
@@ -116,10 +228,15 @@ export default function HomePage() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [games, setGames] = useState<GameRow[]>([]);
   const [joinCode, setJoinCode] = useState("");
+  const [resetEnabled, setResetEnabled] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const { user } = await api<{ user: Me | null }>("/api/auth/me");
+      const { user, features } = await api<{
+        user: Me | null;
+        features?: { passwordReset?: boolean };
+      }>("/api/auth/me");
+      setResetEnabled(!!features?.passwordReset);
       setMe(user);
       if (user) {
         const res = await api<{ games: GameRow[] }>("/api/games");
@@ -165,7 +282,7 @@ export default function HomePage() {
         <div className="rise text-felt">
           <Brand big />
         </div>
-        <AuthCard onDone={load} />
+        <AuthCard onDone={load} resetEnabled={resetEnabled} />
         <p className="text-center text-sm text-faint">
           Play <b>20 Ball</b> (2 v 2, keep 20 of 36) or <b>40 Ball</b> (4 v 4,
           keep 40 of 72). Your team picks which scores to keep — the other team
@@ -192,6 +309,8 @@ export default function HomePage() {
           sign out ({me.username})
         </button>
       </header>
+
+      {resetEnabled && !me.email && <EmailPrompt onSaved={load} />}
 
       <div className="rise space-y-4">
         <Link href="/new" className="btn btn-felt h-14 w-full text-lg">

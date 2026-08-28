@@ -13,11 +13,12 @@ API-first bridge, so keep game logic on the server (native will reuse it).
 ```bash
 npm run dev                                             # dev server, port 3000
 npm run build                                           # prod build + typecheck
-node --experimental-strip-types scripts/engine.test.ts  # engine unit tests
-npx vercel deploy --prod --yes                          # deploy to prod (20ball.golf)
+node --experimental-strip-types scripts/engine.test.ts  # engine unit tests (also courses.test.ts)
+npx vercel deploy --prod --yes                          # manual deploy fallback
 ```
-Code lives at `github.com/pwidds22/20-ball` (private). `git push` and `vercel deploy`
-are separate steps — deploys are NOT git-triggered.
+Code lives at `github.com/pwidds22/20-ball` (private). Deploys ARE git-triggered
+(since lib/config.ts became committed + env-driven): push `master` → production
+(20ball.golf), push any branch → preview deployment.
 
 ## Architecture
 ```
@@ -28,7 +29,7 @@ app/
 lib/
   engine.ts        # PURE rules engine — strokes, keep math, scoring, optimal. No deps, unit-tested.
   game-server.ts   # loads a game + REDACTS opponent data per viewer (buildState); parseJsonb lives here
-  db.ts  auth.ts  config.ts   # postgres client · JWT session · secrets (gitignored)
+  db.ts  auth.ts  config.ts   # postgres client · JWT session · env-driven config (committed)
 components/         # setup editors + game/ views (hole, card, game tabs) + ui primitives
 scripts/engine.test.ts   # run with: node --experimental-strip-types
 ```
@@ -51,10 +52,10 @@ scripts/engine.test.ts   # run with: node --experimental-strip-types
   arrive as strings. Parse them with `parseJsonb()` (game-server.ts).
 - **Never run `next build` while `npm run dev` is running** — it corrupts `.next`
   and the dev server starts returning 500s. Recovery: stop dev, `rm -rf .next`, restart.
-- **Secrets** (DB URL, `AUTH_SECRET`, `GOLF_COURSE_API_KEY`) live in gitignored
-  `lib/config.ts`; they ship to Vercel via `.vercelignore` (which replaces
-  .gitignore for uploads). Same-named real env vars override. **Never commit
-  secrets or put them in this file.**
+- **Secrets** (DB URL, `AUTH_SECRET`, `GOLF_COURSE_API_KEY`, `RESEND_API_KEY`)
+  live in gitignored `.env.local` for dev and in the Vercel project's env vars
+  for deploys — `lib/config.ts` is committed and only reads `process.env`.
+  **Never commit secrets or put them in this file.**
 - **Apex `20ball.golf` 308-redirects to `www`** — fine for browsers; only matters
   for scripts that disable redirect-following (use `www.20ball.golf` there).
 
