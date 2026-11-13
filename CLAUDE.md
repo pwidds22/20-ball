@@ -16,7 +16,7 @@ npm run build                                           # prod build + typecheck
 node --experimental-strip-types scripts/engine.test.ts  # engine unit tests (also courses.test.ts)
 npx vercel deploy --prod --yes                          # manual deploy fallback
 ```
-Code lives at `github.com/pwidds22/20-ball` (private). Deploys ARE git-triggered
+Code lives at `github.com/pwidds22/20-ball`. Deploys ARE git-triggered
 (since lib/config.ts became committed + env-driven): push `master` → production
 (20ball.golf), push any branch → preview deployment.
 

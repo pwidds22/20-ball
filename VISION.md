@@ -28,7 +28,7 @@ which feeds fairer games — a virtuous loop.
 
 Think of **18Birdies / TheGrint** as the round-tracking, handicap, GPS, and stats
 layer. This app is the **games-between-people layer**: less about logging every
-shot, more about making it dead simple to set up a fair match and settle it. We
+shot, more about making it dead simple to set up a fair match and score it. We
 track scores and handicaps — not shot-by-shot GPS or strokes-gained analytics.
 
 ## Platform direction: mobile-first, eventually mobile-only
@@ -59,40 +59,30 @@ scoring logic) carries over intact; only the UI gets rebuilt natively.
   compute exactly how many strokes each player/side gets and on which holes.
   Necessary but not sufficient: rivals compute strokes too, so *fair strokes
   alone is table-stakes.* Our moat is the **combination** — fair strokes,
-  *shown* (not a black box), on a live, focused, no-money scorecard, with formats
+  *shown* (not a black box), on a live, focused scorecard, with formats
   nobody else has (hidden-info 20 Ball). See [ROADMAP.md](ROADMAP.md).
 - **Live scorecard + results** — run the game hole by hole, see who's winning,
   record the outcome.
-- **Side-game odds** — handicap-fair terms for the little bets people actually
-  make: net birdies/eagles ("dots"), skins, closest-to-pin, long drive. Betting
-  even money on gross birdies is a bad deal for a 20 against a 5; the app should
-  either score these *net* (reusing the stroke engine) or suggest fair stakes so
-  the weaker player isn't fleeced.
+- **Fair side games** — net birdies/eagles, skins, closest-to-pin, long drive.
+  Counting gross birdies is lopsided when a 20 plays a 5, so the app scores
+  these *net*, reusing the stroke engine.
 - **History / head-to-head** — your record against each friend, across formats.
 
 ## Prior art / features worth borrowing
 
 Apps already in this space — study them, take what's good:
 
-- **Matchplay** (matchplaygolf.app) — "social scorecard for golf groups"; clean
-  live match/skins/bets view that updates hole by hole.
-- **LevelGolf** — matchplay & Nassau with an "odds" system as an alternative to
-  strokes-per-hole (relevant to the side-game odds idea above).
-- **Golf GameBook** — broad format support, does all the match math for you.
-- **mScorecard** — deep catalog of side games (skins, Nassau, greenies, birdies,
-  longest drive, etc.).
-- **Matchplay Stroke Calculator** — the narrow "just tell me the strokes" tool.
+- **Live group scorecards** — a match/skins view that updates hole by hole.
+- **Broad format catalogs** — apps that do all the match math for many formats.
+- **Stroke calculators** — the narrow "just tell me the strokes" tool.
 
-Most have thin/no reviews, so the bar on polish + the right feature mix is
-beatable.
+The space is fragmented, so polish and the right feature mix can stand out.
 
 ## What it is not (for now)
 
 - Not a shot-by-shot GPS or strokes-gained tracker.
-- Not a gambling / money-handling product. It organizes friendly games and keeps
-  score — it can tally who owes who and show a settle-up card, but players settle
-  themselves; the app never holds or moves money. (Money movement carries real
-  App Store and legal constraints and is out of scope.)
+- Not a payments product. It organizes friendly games and keeps score; it never
+  handles money.
 
 ## Current state
 
@@ -106,17 +96,16 @@ native client at later.
 ## Roadmap
 
 The detailed, current plan lives in **[ROADMAP.md](ROADMAP.md)** — prioritized
-features, the phased sequence, a competitor teardown, and the strategic calls
-(web-first → PWA → native via Expo, gated on real signal; track-but-never-move
-money). The short version:
+features, the phased sequence, and the strategic calls (web first, then PWA,
+then native via Expo once there's real usage). The short version:
 
 1. **Now:** 20 / 40 Ball as a web app, in real use with friends.
 2. **Format-aware stroke engine** + the everyday formats (singles match, 2v2 best
    ball) — the reach unlock.
-3. **Fair side bets** (net dots + skins) + a shareable settle-up card.
-4. **Profiles, friends, and a Rivals scoreboard** — records + running stakes.
+3. **Fair side games** (net birdies + skins) + a shareable results card.
+4. **Profiles, friends, and a Rivals scoreboard** — head-to-head records.
 5. **Growth loop** — PWA push, onboarding, frictionless guest join.
-6. **Native app** (Expo/React Native) against the existing API once signal hits;
+6. **Native app** (Expo/React Native) against the existing API once usage grows;
    rebrand off "20 Ball" then.
 
 Keeping the codebase **API-first** from here on is what makes the native step

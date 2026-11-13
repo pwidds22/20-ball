@@ -1,55 +1,71 @@
-# 20 Ball 🏌️
+# 20 Ball
 
-The two-man (and four-man) team golf game of nerve, as a live-syncing web app.
+A live-syncing web app for 20 Ball and 40 Ball, team golf games where you can't
+see which scores the other team is keeping.
 
 **Play it:** [20-ball.vercel.app](https://20-ball.vercel.app)
 
-## The game
+## How the game works
 
-Two teams. Each team keeps a fixed number of the scores its players shoot across
-18 holes — **20 Ball** is 2 v 2, keep 20 of 36; **40 Ball** is 4 v 4, keep 40 of
-72. You choose which scores to keep, hole by hole, and once you lock a hole in
-it's final. The catch: you can't see which scores the other team is keeping, so
-you're playing blind — skip too many holes waiting for something better and a
-late blow-up you're forced to keep can sink you. Net scoring off the lowest
-handicap in the group.
+- Two teams play 18 holes. **20 Ball** is 2 v 2 and each team keeps 20 of its 36
+  scores; **40 Ball** is 4 v 4 and each team keeps 40 of 72.
+- Hole by hole, each team picks which scores to keep. Once a hole is locked in,
+  the choice is final.
+- You can't see which scores the other team kept. Skip too many holes waiting
+  for something better, and a late blow-up you're forced to keep can sink you.
+- Scoring is net, with handicap strokes off the lowest handicap in the group.
 
-## Stack
+## Tech stack
 
-- **Next.js** (App Router) — UI + API routes
-- **Supabase Postgres** — data (isolated `twentyball` schema, dedicated app role)
-- Username/password auth via signed JWT cookies (`jose` + `bcryptjs`)
+- **Next.js** (App Router) for the UI and API routes
+- **Supabase Postgres** in an isolated `twentyball` schema with a dedicated app role
+- Username/password auth with signed JWT cookies (`jose` + `bcryptjs`)
 - Deployed on **Vercel**
 
-The rules engine (`lib/engine.ts`) is pure and dependency-free, with unit tests
-in `scripts/engine.test.ts`.
+All game rules run on the server. The rules engine (`lib/engine.ts`) is pure and
+dependency-free, with unit tests in `scripts/`. Hidden scores are enforced
+server-side, not just hidden in the UI.
 
-## Local setup
+## Built with Claude Code
 
-```bash
-npm install
-cp lib/config.example.ts lib/config.ts   # then fill in DATABASE_URL + AUTH_SECRET
-npm run dev
-```
+This project is built with [Claude Code](https://claude.com/claude-code).
+[`CLAUDE.md`](CLAUDE.md) holds the project guidelines it works from.
+[`VISION.md`](VISION.md) and [`ROADMAP.md`](ROADMAP.md) describe where the
+project is going.
 
-Secrets live in `lib/config.ts` (gitignored) or real environment variables of
-the same name (`DATABASE_URL`, `AUTH_SECRET`, and the optional
-`GOLF_COURSE_API_KEY` for in-app course search). Environment variables always
-win over the file, so production reads them from the Vercel project settings.
+## Run locally
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create a `.env.local` file in the project root. It is gitignored.
+   [`lib/config.example.ts`](lib/config.example.ts) lists every variable:
+
+   | Variable | Required | Purpose |
+   |---|---|---|
+   | `DATABASE_URL` | Yes | Postgres connection string |
+   | `AUTH_SECRET` | Yes | Long random string that signs session tokens |
+   | `GOLF_COURSE_API_KEY` | No | Enables course search ([golfcourseapi.com](https://golfcourseapi.com)) |
+   | `RESEND_API_KEY` | No | Enables password-reset emails ([resend.com](https://resend.com)) |
+   | `EMAIL_FROM`, `APP_ORIGIN` | No | Email sender and link origin |
+
+   Generate an `AUTH_SECRET` with:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+3. Start the dev server on port 3000:
+
+   ```bash
+   npm run dev
+   ```
 
 Run the engine tests:
 
 ```bash
 node --experimental-strip-types scripts/engine.test.ts
 ```
-
-## Features
-
-- 20 Ball (2 v 2) and 40 Ball (4 v 4)
-- Hidden opponent scores — enforced server-side, not just in the UI
-- Per-hole lock-in with a confirmation; decisions are final (or alerted-on-change)
-- Course search (golfcourseapi.com) plus a hand-editable scorecard
-- Handicap strokes off the low player, with par-3 and allowance options
-- Shotgun / split-tee starts (each team can start on any hole)
-- Peeks, scheduled reveals, per-team finish with a private recap
-- Final card with per-player Used credit and to-par contribution

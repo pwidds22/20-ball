@@ -219,7 +219,7 @@ export function SettingsEditor({
         hint={
           settings.keepPolicy === "flexible"
             ? "On: tapped the wrong thing? Change it — the other team is told exactly what changed."
-            : "Off: a locked hole is final, even if it was a mis-tap. For money games."
+            : "Off: a locked hole is final, even if it was a mis-tap. For competitive games."
         }
         checked={settings.keepPolicy === "flexible"}
         onChange={(v) => set({ keepPolicy: v ? "flexible" : "locked" })}
