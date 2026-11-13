@@ -3,7 +3,7 @@
 A live-syncing web app for 20 Ball and 40 Ball, team golf games where you can't
 see which scores the other team is keeping.
 
-**Play it:** [20-ball.vercel.app](https://20-ball.vercel.app)
+**Play it:** [www.20ball.golf](https://www.20ball.golf)
 
 ## How the game works
 
